@@ -1,355 +1,174 @@
-# 暖桥 WarmBridge · Demo 工程
+# 暖桥 WarmBridge · Demo
 
-
-
-Android（Kotlin + Jetpack Compose）+ Python（FastAPI）+ vivo 蓝心 Chat，对齐策划书 MVP。
-
-
-
-## UI 设计基准
-
-
-
-预览 / 模拟器可参考 **1260 × 2800 px、560 dpi**（逻辑宽约 **360 dp**）。客户端使用 **大字号、暖色 Material3** 主题，详见 `android/app/src/main/res/values/dimens.xml` 说明。
-
-
+面向「家长—子女」代际沟通的演示应用：**子女分享资讯、家长用大字号界面浏览**，并可一键 **AI 讲给长辈听**（服务端调用 vivo **蓝心 Chat** 生成通俗解读）。工程用于应用赛道 / MVP 演示，含 **Android 客户端** 与 **FastAPI 后端（BFF）**。
 
 ---
 
+## 功能一览
 
+| 角色 | 能力 |
+| --- | --- |
+| **家长** | 选择兴趣标签浏览热点列表；查看详情；**AI 讲给长辈听**（通俗摘要、背景小知识、词语小抄）；**浏览器打开原文**；查看「孩子推荐」；**温情提醒**（定时通知） |
+| **孩子** | **分享链接**（带备注）到后端，家长端「孩子推荐」可见 |
+| **年轻人话题** | 单独频道列表（与标签热点数据源一致，演示多入口） |
 
-## 一、手机 App 如何连上你的电脑后端
+未配置大模型密钥时，解读接口仍返回 **HTTP 200** 与离线占位文案，便于先调通网络与 UI；是否真正走蓝心以响应字段 **`from_llm: true`** 为准（也可用 `/docs` 调 `POST /api/explain` 查看）。
 
+---
 
+## 技术栈
 
-### 1. 启动后端（必须先做）
+- **Android**：Kotlin、Jetpack Compose、Material 3（暖色、大字号）、Retrofit；HTTP 明文仅用于 Demo 局域网调试，详见 `android/app/src/main/res/values/dimens.xml` 中的界面基准说明
+- **后端**：Python 3、FastAPI、httpx（调用蓝心 Chat Completions）
+- **数据**：热点为服务端 **Mock 白名单**（`server/app/services/feed_mock.py`）；分享条目内存存储（重启清空）
 
+---
 
+## 仓库结构
 
-在 **`warmbridge-demo/server`** 目录下。
+```
+warmbridge-demo/
+├── android/                 # Android Studio 工程（模块根目录）
+│   ├── app/src/main/... # 界面、主题、网络层、Worker 等
+│   └── local.properties     # 本地生成：SDK 路径、API 根地址（勿提交 Git）
+├── server/
+│   ├── .env                 # 本地配置：VIVO_APP_KEY 等（勿提交 Git）
+│   ├── .env.example         # 变量模板，可复制为 .env
+│   ├── app/
+│   │   ├── main.py          # FastAPI 入口
+│   │   ├── routers/         # /api/feed、/api/explain、/api/share 等
+│   │   ├── services/        # Mock  feed、vivo_llm、内存 store
+│   │   └── config.py        # 读取 server/.env
+│   └── requirements.txt
+├── 联调问题报告.md          # 明文 HTTP、IP、explain 缓存等排障
+├── GitHub上传指南.md        # 协作、.gitignore、内网 baseUrl 说明
+└── README.md                # 本文件
+```
+（若赛事方另发了 **蓝心接口速查**等文档，请自行对照模型名与权限，不必放进本仓库。）
 
-**首次**在本机需要虚拟环境与依赖：
+---
 
+## 从零开始配置并跑起来
 
+以下默认你在本机 **同时跑后端 + 编译 App**；手机与电脑需 **同一局域网（如同一 Wi‑Fi）**。
 
-```bash
+### 0. 准备环境
 
+- 安装 **Python 3.10+**、**Git**（若从仓库克隆）
+- 安装 **Android Studio**，并装好 **Android SDK**、一台 **真机或模拟器**
+- 关闭或放行本机防火墙对 **8000 端口** 的入站（真机访问 Windows 开发机时常见）
+
+### 1. 后端：虚拟依赖与启动
+
+在仓库中的 **`server`** 目录执行：
+
+**Windows（PowerShell / CMD）：**
+
+```bat
 cd server
-
 python -m venv .venv
-
 .venv\Scripts\activate
-
-# Windows 用上一行；Linux / macOS：source .venv/bin/activate
-
 pip install -r requirements.txt
-
 copy .env.example .env
-
-# Windows；Linux / macOS：cp .env.example .env
-
-# 再编辑 .env，填写 VIVO_APP_KEY（见下文「二」）
-
 ```
 
-
-
-**之后每次**启动（若已建 `.venv`，先 `activate`）：
-
-
+**macOS / Linux：**
 
 ```bash
-
 cd server
-
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
+用编辑器打开 **`server/.env`**，先填 **`VIVO_APP_KEY=`**（赛事/官网下发的 AppKey 整行粘贴即可；**末尾 `=` / `==` 不要删**）。可选：`VIVO_CHAT_MODEL` 等与 `.env.example` 说明一致。
 
+启动 API（**必须**监听 `0.0.0.0`，否则真机访问不到）：
 
-必须用 **`--host 0.0.0.0`**，否则真机访问不到。本地可调 Swagger：**<http://127.0.0.1:8000/docs>**。
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
 
+浏览器打开 [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) 可调试接口。
 
+### 2. 确认局域网地址
 
-未配置 `VIVO_APP_KEY` 时，`/api/explain` 仍会返回 **HTTP 200** 与离线占位 JSON，便于先调通 App；是否真走蓝心请看响应里的 **`from_llm`**（`true` 为成功）或「背景小知识」文案。
+在 **运行后端的电脑** 上查看 IPv4，例如 Windows 执行 `ipconfig`，取当前上网网卡（如 **WLAN**）的地址，记为 `YOUR_IP`（如 `192.168.1.5`）。
 
+用 **手机浏览器** 访问（把 `YOUR_IP` 换成上一步的地址）：
 
+- `http://YOUR_IP:8000/health` → 应返回类似 `{"status":"ok"}`
+- `http://YOUR_IP:8000/api/tags` → 应返回 JSON
 
-### 2. 确认「唯一正确」的地址
+若手机打不开，先检查 **同一 Wi‑Fi**、**防火墙**、**IP 是否选对**，再往下配 App。
 
+### 3. Android：配置 API 根地址
 
+用 **Android Studio** 打开 **`warmbridge-demo/android`**（打开到含 `settings.gradle.kts` 的那一层）。
 
-用手机浏览器打开（把 `x.x.x.x` 换成你电脑当前局域网 IP）：
-
-
-
-- `http://x.x.x.x:8000/health` → 应看到 `{"status":"ok"}` 或类似 JSON  
-
-- `http://x.x.x.x:8000/api/tags` → 应看到含 `tags` 的 JSON  
-
-
-
-**App 里配置的地址必须与浏览器能通的 `x.x.x.x` 完全一致**（换 Wi‑Fi / DHCP 后 IP 会变，需同步改）。
-
-
-
-### 3. 在 Android 工程里写死这个地址（真机必做）
-
-
-
-1. 用 Android Studio 打开 **`warmbridge-demo/android`**。  
-
-2. 编辑 **`android/local.properties`**（与 `app` 文件夹同级），增加或修改一行（注意末尾 **`/`**）：
-
-
+编辑 **`android/local.properties`**（与 `app` 文件夹同级；若不存在可新建），增加一行，**末尾斜杠必填**：
 
 ```properties
-
-warmbridge.api.baseUrl=http://x.x.x.x:8000/
-
+warmbridge.api.baseUrl=http://YOUR_IP:8000/
 ```
 
+将 `YOUR_IP` 换成第 2 步里手机浏览器已验证能访问的 IP。
 
+然后：**File → Sync Project with Gradle Files**，**Build → Rebuild Project**。真机建议 **卸载旧 App 再安装**，避免仍使用旧的 `BuildConfig.API_BASE_URL`。
 
-把 `x.x.x.x` 换成上一步浏览器里能打开 `/health` 的 IP（例如你环境中的 `10.70.90.210`）。
+**官方模拟器、且后端在本机**：可不写 `warmbridge.api.baseUrl`，工程默认使用 **`http://10.0.2.2:8000/`**（模拟器访问宿主机）。
 
+### 4. 验证密钥是否被后端加载
 
+在已 **activate** 的 `server` 虚拟环境下执行：
 
-3. **File → Sync Project with Gradle Files**，再 **Build → Rebuild Project**。  
+```bash
+python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', bool(settings.vivo_app_key.strip()))"
+```
 
-4. **卸载手机上的旧 App 再安装**，确保 `BuildConfig.API_BASE_URL` 已更新。
+- `True`：密钥非空；若 App 里仍像离线，多为 **蓝心接口报错**，请看详情页「背景小知识」或 `/docs` 里 `POST /api/explain` 返回的 `background`、`from_llm`。
+- `False`：检查 `.env` 是否在 **`server/`** 下、键名是否为 **`VIVO_APP_KEY`**、保存后是否 **重启过 uvicorn**。
 
+### 5. 运行 App
 
-
-### 4. 官方 Android 模拟器（后端跑在本机时）
-
-
-
-可不写 `local.properties`，默认使用 **`http://10.0.2.2:8000/`**（模拟器访问开发机专用地址）。
-
-
-
-### 5. 常见现象
-
-
-
-| 现象 | 常见原因 |
-
-| --- | --- |
-
-| 浏览器 `10.70.90.210` 能开，App 连 `10.70.50.248` 失败 | `local.properties` 里还是旧 IP，与浏览器不一致 |
-
-| `CLEARTEXT ... not permitted` | 已在本 Demo 的 `network_security_config` 放行 HTTP；若仍出现请 Clean/Rebuild 并重装 App |
-
-| `/health` 通、`/api/...` 不通 | 多为 baseUrl 写错或未 Sync/重装 |
-
-
-
-更细的排障步骤见 **[联调问题报告.md](联调问题报告.md)**。
-
-
+在 Android Studio 中选择设备，运行 **`app`**。建议体验路径：选角色 → 家长：选标签 → 进列表 → 详情 → **AI 讲给长辈听**；孩子端：**分享链接**后回到家长端「孩子推荐」查看。
 
 ---
 
-
-
-## 二、蓝心大模型 API Key（仅服务端，与「能否连上后端」无关）
-
-
-
-密钥**只放在 Python 后端**，不要写进 Android 工程。
-
-
-
-### 1. 文件位置（必须对）
-
-
-
-- 配置文件：**`warmbridge-demo/server/.env`**（与 **`server/app/`** 同级，不是仓库最外层、也不是 `android/`下）。  
-
-- 可从 **`server/.env.example`** 复制改名得到。
-
-
-
-### 2. 写法（必须对）
-
-
-
-在 `.env` 里**单独一行**（变量名与文档一致）：
-
-
-
-```env
-
-VIVO_APP_KEY=你的官网下发的AppKey整串
-
-```
-
-
-
-注意：
-
-
-
-- 键名必须是 **`VIVO_APP_KEY`**（全大写、下划线）。  
-
-- 一般**不要**加英文双引号；若加，确保成对且中间没有中文引号。  
-
-- **`=` 两侧不要多空格**；密钥后面不要跟注释写在同一行（易解析错）。  
-
-- 保存为 **UTF-8**（Windows 记事本另存为时选 UTF-8）。
-
-
-
-可选：
-
-
-
-```env
-
-VIVO_CHAT_MODEL=Doubao-Seed-2.0-mini
-
-```
-
-
-
-模型名须与账号已开通权限一致，见 `vivo-aigc-接口开发速查.md`。
-
-
-
-**环境变量一览（与 `server/.env.example` 一致）：**
-
-
+## 环境变量说明（服务端）
 
 | 变量 | 必填 | 说明 |
-
 | --- | --- | --- |
+| `VIVO_APP_KEY` | 使用真模型时必填 | `Authorization: Bearer <AppKey>` |
+| `VIVO_CHAT_URL` | 否 | 默认官方 Chat Completions 地址 |
+| `VIVO_CHAT_MODEL` | 否 | 须与账号开通的模型一致 |
+| `VIVO_APP_ID` | 否 | 预留 |
 
-| `VIVO_APP_KEY` | 接真模型时必填 | 官网下发的 AppKey；请求头为 `Authorization: Bearer <AppKey>` |
-
-| `VIVO_CHAT_URL` | 否 | 默认 `https://api-ai.vivo.com.cn/v1/chat/completions` |
-
-| `VIVO_CHAT_MODEL` | 否 | 默认 `Doubao-Seed-2.0-mini`，须与账号权限一致 |
-
-| `VIVO_APP_ID` | 否 | 预留；部分能力（如 OCR）可能需 AppId，见接口文档 |
-
-
-
-**AppKey 末尾的 `=` / `==`**：多为 Base64 填充，属正常格式，勿删除。
-
-
-
-### 3. 修改后必须重启后端
-
-
-
-改 `.env` 后，在运行 `uvicorn` 的终端 **Ctrl+C 停止**，再重新执行：
-
-
-
-```bash
-
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-```
-
-
-
-（本仓库已改为**始终从 `server/.env` 读取**，与你在哪个目录敲命令无关，但 **`server` 目录下启动**仍是推荐习惯。）
-
-
-
-### 4. 自检：密钥是否已被进程读到
-
-
-
-在 **`server` 目录**执行：
-
-
-
-```bash
-
-python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', bool(settings.vivo_app_key.strip()))"
-
-```
-
-
-
-- 输出 **`True`**：进程已读到非空密钥；若 App 仍显示离线，多半是 **调用 vivo 接口失败**（权限/限流/网络），详情见 App 里「背景小知识」是否变为 **「已配置密钥，但调用蓝心 Chat 失败」** 及附带的 HTTP 状态或错误信息。  
-
-- 输出 **`False`**：仍为未加载——检查 `.env` 是否在 **`server/`**、键名是否 **`VIVO_APP_KEY`**、是否保存、是否已重启 `uvicorn`。
-
-
-
-### 5. 为什么「我配了 key 仍提示未配置」？常见情况：
-
-
-
-1. **`.env` 不在 `server/`**（例如在 `warmbridge-demo` 根目录另建了一个 `.env`，后端不会读）。  
-
-2. **键名写错**（如 `APP_KEY`、`vivo_app_key` 小写在 `.env` 里虽部分环境能映射，但建议严格使用 **`VIVO_APP_KEY`**）。  
-
-3. **改完未重启** `uvicorn`（配置只在启动时加载）。  
-
-4. **其实已读到 key，但 vivo 返回 401/403 等**：以前界面与「完全没 key」共用一句提示；现已区分——**无 key** 与 **调用失败** 在「背景小知识」里文案不同，请根据新版提示继续排查 AppKey/权限/模型名。
-
-
+详情见 **`server/.env.example`**；模型名与权限以赛事 / 官方接口文档为准。
 
 ---
 
+## 常见问题（精简）
 
+| 现象 | 处理 |
+| --- | --- |
+| App 连不上、Logcat 含 `CLEARTEXT ... not permitted` | 本 Demo 已放行 HTTP；仍报错请 **Clean/Rebuild** 并重装 App |
+| 浏览器能开 `/health`，App 不行 | **`local.properties` 的 IP 与浏览器不一致** 或 **未 Sync/重装** |
+| 配了 Key 仍像离线 | 看 **`from_llm`** 与「背景小知识」；参阅 [联调问题报告.md](联调问题报告.md)（含 explain 缓存说明） |
+| 别人 clone 后怎么填 IP | 每人填 **自己电脑** 的局域网 IP，见 [GitHub上传指南.md](GitHub上传指南.md) |
 
-## 三、体验路径
+---
 
+## 安全与协作
 
+- **`VIVO_APP_KEY` 仅放在 `server/.env`**，不要写入 Android 工程，不要提交到 Git。
+- **`android/local.properties`** 已在 `.gitignore`，每人本地配置。
 
-- 选「家长」→ 兴趣标签 / 孩子推荐 / 年轻人话题 → 列表 → 详情 → **AI 讲给长辈听** → 浏览器打开原文。  
-
-- 选「孩子」→ 分享链接 → 家长端「孩子推荐」可见。  
-
-- 「温情提醒」：定时后系统通知（Android 13+ 需授权通知）。
-
-
-
-## 目录结构
-
-
-
-```
-
-warmbridge-demo/
-
-├── android/          # Android Studio 工程
-
-├── server/           # FastAPI BFF（.env 放这里）
-
-├── 联调问题报告.md
-
-└── README.md
-
-```
-
-
-
-## 安全说明
-
-
-
-**勿将 `VIVO_APP_KEY` 写入 Android 工程或提交到公开仓库。** 仅放在 **`server/.env`**，且勿提交 Git。
-
-
+---
 
 ## 更多文档
 
-
-
-- 网络与 IP、`/api/explain` 200 与离线文案、密钥与缓存：[联调问题报告.md](联调问题报告.md)  
-
-- 整理工程、`.gitignore`、推送到 GitHub：[GitHub上传指南.md](GitHub上传指南.md)  
-
-- vivo 接口速查：仓库内 `vivo-aigc-接口开发速查.md`  
-
-- `server/` 目录仅保留简短说明，完整步骤见本文「一」「二」。
-
-
+- [联调问题报告.md](联调问题报告.md) — 网络、明文策略、`/api/explain` 与缓存等  
+- [GitHub上传指南.md](GitHub上传指南.md) — 推送仓库、协作者内网与密钥  
+- `server/README.md` 为指向本仓库说明的简短入口（若存在）  

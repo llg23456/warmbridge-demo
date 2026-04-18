@@ -120,9 +120,37 @@ git push
 
 ## 6. 别人 clone 下来要做什么？
 
-1. 按根目录 **`README.md`** 配置 `server/.env`（从 `.env.example` 复制）并填写自己的 **`VIVO_APP_KEY`**（勿向他人索要你的密钥）。  
-2. 按 README 配置 **`android/local.properties`**（本机路径与 `warmbridge.api.baseUrl`）。  
-3. 后端 `pip install` + `uvicorn`，Android Studio 打开 `android` 工程编译运行。
+### 6.1 通用步骤
+
+1. 按根目录 **`README.md`** 安装依赖：Python 虚拟环境 + `server/requirements.txt`，Android Studio 打开 **`android/`** 工程。  
+2. **`server/.env`**：从 **`server/.env.example`** 复制为 `.env`，填写**他自己账号**的 **`VIVO_APP_KEY`**（不要用你的密钥；密钥不进 Git）。  
+3. 启动后端时必须 **`uvicorn ... --host 0.0.0.0 --port 8000`**，否则手机访问不到。
+
+### 6.2 内网地址怎么配？（协作者必看）
+
+接口地址**不在 Git里写死**。谁在电脑上跑后端，App 就要连 **那台电脑在当前局域网里的 IP**；手机与电脑需在同一 Wi‑Fi（或能互通的内网）。
+
+| 场景 | `warmbridge.api.baseUrl` |
+| --- | --- |
+| **真机，后端在自己电脑** | `http://<本机 IPv4>:8000/` 例如 `http://192.168.1.5:8000/` |
+| **官方模拟器，后端在本机** | 可不配：默认 **`http://10.0.2.2:8000/`** |
+| **后端在同事电脑，你手机测** | `http://<同事电脑 IPv4>:8000/`（对方需放行防火墙8000 端口） |
+
+**查本机局域网 IP（Windows）**：`ipconfig` → 当前上网网卡（如 WLAN）的 **IPv4 地址**。不要用仓库里截图或文档中举例的某个固定 `10.70.x.x`，每人环境不同，必须自己填。
+
+**写在哪**：编辑 **`android/local.properties`**（与 `android/app` 同级），例如：
+
+```properties
+warmbridge.api.baseUrl=http://192.168.1.5:8000/
+```
+
+行末 **`/` 必须保留**。改完 **Sync Gradle → Rebuild**；真机建议**卸载旧 App 再安装**，避免仍用旧的 `BuildConfig.API_BASE_URL`。
+
+**自检**：手机浏览器先打开 `http://<同一IP>:8000/health`，能通再跑 App。`local.properties` 已在 `.gitignore`，每人本地一份，**不要提交**。
+
+### 6.3 更多排障
+
+明文 HTTP、换 Wi‑Fi 后 IP 变了等，见 **`README.md`** 与 **`联调问题报告.md`**。
 
 ---
 
