@@ -1,0 +1,32 @@
+# 密钥与本地配置（切勿提交）
+**/.env
+!**/.env.example
+
+# Python
+**/.venv
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Android / Gradle
+**/build/
+**/.gradle/
+**/local.properties
+**/*.iml
+**/captures/
+**/*.apk
+**/*.aab
+**/*.keystore
+**/*.jks
+
+# IDE
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# 日志与临时文件
+*.log
+*.tmp

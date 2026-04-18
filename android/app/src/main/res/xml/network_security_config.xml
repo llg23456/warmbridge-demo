@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Demo：允许 HTTP 明文，便于真机访问局域网 IP（如 10.x / 192.168.x）。上架生产应改为 HTTPS + 收紧域名。 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

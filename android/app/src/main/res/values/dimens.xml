@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 设计参考：预览器 1260 x 2800 px，560 dpi，约 360 x 800 dp 逻辑宽 -->
+    <dimen name="wb_touch_min">56dp</dimen>
+    <dimen name="wb_padding_screen">20dp</dimen>
+</resources>
