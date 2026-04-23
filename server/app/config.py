@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     vivo_chat_url: str = "https://api-ai.vivo.com.cn/v1/chat/completions"
     # §8 等：部分接口（如通用 OCR 的 businessid）可能需 AppId，当前 explain 流程未使用
     vivo_app_id: str = ""
+    # 分享解读：DuckDuckGo Instant Answer 轻量检索（无需单独 API Key；内网/限流时可能为空）
+    web_search_enabled: bool = True
 
 
 settings = Settings()

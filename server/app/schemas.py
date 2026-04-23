@@ -11,6 +11,11 @@ class FeedItem(BaseModel):
     tag: str
     channel: str = "tag"
     updated_at: str = ""
+    # 分享入库时由服务端抓取，供 /api/explain 丰富材料（可选）
+    page_description: str = ""
+    preview_image_url: str = ""
+    # 关键词联网摘要（DuckDuckGo 等），仅服务端用于解读
+    web_context: str = ""
 
 
 class FeedResponse(BaseModel):
@@ -34,6 +39,8 @@ class ExplainResponse(BaseModel):
 class ShareRequest(BaseModel):
     url: str
     note: str = ""
+    # App 端「链接」框里用户粘贴的整段口令（与 url 同时传，便于抽标题/关键词/检索）
+    raw_paste: str = ""
     parent_user_id: str = "parent_demo"
 
 

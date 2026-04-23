@@ -1,15 +1,27 @@
+# =============================================================================
+# 提交 GitHub 前：勿将 .env、密钥、签名、整仓 build 产物加入版本库
+# =============================================================================
+
 # 密钥与本地配置（切勿提交）
 **/.env
 !**/.env.example
+*.pem
 
 # Python
-**/.venv
+**/.venv/
+**/venv/
 **/__pycache__/
 **/*.py[cod]
 **/.pytest_cache/
 **/.mypy_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
+**/coverage.xml
+**/*.egg-info/
+**/dist/
 
-# Android / Gradle
+# Android / Gradle / Kotlin
 **/build/
 **/.gradle/
 **/local.properties
@@ -17,16 +29,31 @@
 **/captures/
 **/*.apk
 **/*.aab
+**/*.ap_
+**/*.dex
+**/*.dm
 **/*.keystore
 **/*.jks
+**/signing.properties
+.externalNativeBuild/
+.cxx/
+**/.kotlin/
 
-# IDE
+# IDE 与系统
 .idea/
 *.swp
 *.swo
+*~
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# 日志与临时文件
+# 日志与临时
 *.log
 *.tmp
+*.temp
+*.hprof
+*.orig
+
+# 可选：本机 Cursor 缓存（若需把 .cursor/rules 一并提交，不要忽略整个 .cursor）
+# .cursor/
