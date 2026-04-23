@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.warmbridge.demo.ui.components.WarmPrimaryButton
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.data.remote.ShareRequest
+import com.warmbridge.demo.util.ShareUrlExtractor
 import com.warmbridge.demo.util.humanizeNetworkError
 import kotlinx.coroutines.launch
 
@@ -44,6 +45,8 @@ import kotlinx.coroutines.launch
 fun ShareScreen(onDone: () -> Unit) {
     // 默认填一条真实可打开的链接，演示时仍可改成任意原文 URL
     var url by remember { mutableStateOf("https://www.news.cn/tech/20241219/fa8d539d4b164cc190738d2943ca080c/c.html") }
+    /** 链接框里用户粘贴的整段原文（抽出 url 后仍保留，用于标题/关键词/检索） */
+    var rawPasteContext by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -72,7 +75,14 @@ fun ShareScreen(onDone: () -> Unit) {
                         scope.launch {
                             busy = true
                             try {
-                                val r = NetworkModule.api.share(ShareRequest(url = url.trim(), note = note.trim()))
+                                val cleanUrl = ShareUrlExtractor.normalizePaste(url)
+                                val r = NetworkModule.api.share(
+                                    ShareRequest(
+                                        url = cleanUrl,
+                                        note = note.trim(),
+                                        rawPaste = rawPasteContext.ifBlank { url.trim() },
+                                    ),
+                                )
                                 if (r.ok) {
                                     snack.showSnackbar("已发送成功，父母可在「孩子推荐」里看到。")
                                 } else {
@@ -106,21 +116,39 @@ fun ShareScreen(onDone: () -> Unit) {
                 .padding(top = 24.dp, bottom = 8.dp),
         ) {
             Text(
-                "粘贴视频或文章链接，写一句「为什么推荐给 Ta」。",
+                "粘贴抖音、B 站等整段分享文案即可，会自动抽出可打开的链接；也可直接粘贴 https 开头网址。",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(24.dp))
             OutlinedTextField(
                 value = url,
-                onValueChange = { url = it },
+                onValueChange = { newVal ->
+                    if (newVal.isBlank()) {
+                        rawPasteContext = ""
+                        url = ""
+                        return@OutlinedTextField
+                    }
+                    val normalized = ShareUrlExtractor.normalizePaste(newVal)
+                    val extracted = ShareUrlExtractor.extractPreferredUrl(newVal)
+                    val hasRichPaste =
+                        (extracted != null && newVal.trim().length > extracted.length + 2) ||
+                            newVal.contains("复制打开") || newVal.contains("【") || newVal.contains('#') ||
+                            newVal.contains("抖音") || newVal.contains("哔哩") || newVal.contains("b23.tv")
+                    if (hasRichPaste) {
+                        rawPasteContext = newVal.trim()
+                    }
+                    url = normalized
+                },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("链接", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) },
+                placeholder = { Text("粘贴分享口令或网址") },
                 textStyle = MaterialTheme.typography.bodyLarge,
                 shape = RoundedCornerShape(12.dp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 colors = fieldColors(),
-                singleLine = true,
+                minLines = 2,
+                maxLines = 5,
             )
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(

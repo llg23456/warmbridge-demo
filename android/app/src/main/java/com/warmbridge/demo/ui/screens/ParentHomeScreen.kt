@@ -1,7 +1,14 @@
 package com.warmbridge.demo.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,40 +18,277 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.WbSunny
 import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.warmbridge.demo.ui.components.WarmPrimaryButton
-import com.warmbridge.demo.data.remote.NetworkModule
+import androidx.compose.ui.unit.sp
+import com.warmbridge.demo.R
+import com.warmbridge.demo.ui.components.AssetPhoto
+import com.warmbridge.demo.ui.components.InterestTagChips
+import com.warmbridge.demo.ui.components.WarmHeaderGradientBackground
+import com.warmbridge.demo.ui.components.WbAssetPhotos
+import com.warmbridge.demo.ui.theme.WbBrandOrange
+import com.warmbridge.demo.ui.theme.WbSourceChipBg
+import com.warmbridge.demo.ui.theme.WbTextMuted
 import java.util.Calendar
 
-private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会")
+@Composable
+fun ParentHomeScreen(
+    serverTags: List<String>,
+    selectedTags: Set<String>,
+    onSelectedTagsChange: (Set<String>) -> Unit,
+    onGoToHotTab: () -> Unit,
+    onReminder: () -> Unit,
+) {
+    val infinite = rememberInfiniteTransition(label = "sunSway")
+    val sunRotate by infinite.animateFloat(
+        initialValue = -6f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2800, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "sunRot",
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(220.dp),
+        ) {
+            WarmHeaderGradientBackground(
+                Modifier
+                    .matchParentSize(),
+            )
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.WbSunny,
+                        contentDescription = null,
+                        tint = WbBrandOrange,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .graphicsLayer { rotationZ = sunRotate },
+                    )
+                    Text(
+                        text = parentGreeting(),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.parent_greeting_hint),
+                    fontSize = 16.sp,
+                    color = WbTextMuted,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+
+        Column(
+            Modifier
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            InterestTagChips(
+                allTags = serverTags,
+                selectedTags = selectedTags,
+                onSelectedTagsChange = onSelectedTagsChange,
+            )
+
+            if (selectedTags.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.parent_interest_summary_all),
+                    fontSize = 14.sp,
+                    color = WbTextMuted,
+                )
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = WbSourceChipBg,
+                    ) {
+                        Row(
+                            Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Icon(
+                                Icons.Filled.Check,
+                                contentDescription = null,
+                                tint = WbBrandOrange,
+                                modifier = Modifier.size(18.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.parent_selection_chip, selectedTags.size),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = WbBrandOrange,
+                            )
+                        }
+                    }
+                }
+            }
+
+            val hotInteraction = remember { MutableInteractionSource() }
+            val reminderInteraction = remember { MutableInteractionSource() }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        ambientColor = Color(0x26E07A3D),
+                        spotColor = Color(0x26E07A3D),
+                    )
+                    .clickable(
+                        interactionSource = hotInteraction,
+                        indication = ripple(color = Color(0x26E07A3D)),
+                        onClick = onGoToHotTab,
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                color = WbBrandOrange,
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Whatshot,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.parent_go_hot),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clickable(
+                        interactionSource = reminderInteraction,
+                        indication = ripple(color = Color(0x26E07A3D)),
+                        onClick = onReminder,
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                border = BorderStroke(1.5.dp, WbBrandOrange),
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        Icons.Filled.Favorite,
+                        contentDescription = null,
+                        tint = WbBrandOrange,
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.parent_reminder_cta),
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = WbBrandOrange,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+            }
+
+            Text(
+                text = stringResource(R.string.parent_footer_warm_quote),
+                fontSize = 14.sp,
+                color = WbTextMuted,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .padding(top = 12.dp),
+            ) {
+                AssetPhoto(
+                    assetPath = WbAssetPhotos.PARENT_HOME_WATERMARK,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = 0.1f },
+                    contentScale = ContentScale.Fit,
+                    placeholderColor = Color.Transparent,
+                )
+            }
+        }
+    }
+}
 
 private fun parentGreeting(): String {
     val h = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
@@ -52,200 +296,5 @@ private fun parentGreeting(): String {
         in 0..10 -> "早上好"
         in 11..16 -> "下午好"
         else -> "晚上好"
-    }
-}
-
-@Composable
-fun ParentHomeScreen(
-    onPickTagFeed: (String) -> Unit,
-    onChildChannel: () -> Unit,
-    onTrendChannel: () -> Unit,
-    onReminder: () -> Unit,
-    onSwitchRole: () -> Unit,
-) {
-    var tags by remember { mutableStateOf(DefaultInterestTags) }
-    /** 空集 = 未选具体标签（等同「全部」）；可多选 */
-    var selectedTags by remember { mutableStateOf(setOf<String>()) }
-
-    LaunchedEffect(Unit) {
-        runCatching { NetworkModule.api.tags().tags }
-            .onSuccess { remote -> if (remote.isNotEmpty()) tags = remote }
-    }
-
-    val chipLabels = remember(tags) { listOf("全部") + tags }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp)
-            .padding(top = 24.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.WbSunny,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(28.dp),
-                )
-                Text(
-                    text = parentGreeting(),
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.onBackground,
-                )
-            }
-            Text(
-                text = "今天想看些什么？",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            items(chipLabels, key = { it }) { label ->
-                val allMode = selectedTags.isEmpty()
-                val sel = if (label == "全部") allMode else label in selectedTags
-                val ink = MaterialTheme.colorScheme.secondary
-                FilterChip(
-                    selected = sel,
-                    onClick = {
-                        if (label == "全部") {
-                            selectedTags = emptySet()
-                        } else {
-                            selectedTags =
-                                if (label in selectedTags) selectedTags - label else selectedTags + label
-                        }
-                    },
-                    label = {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(vertical = 4.dp),
-                        )
-                    },
-                    modifier = Modifier.height(40.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = ink.copy(alpha = 0.15f),
-                        selectedLabelColor = ink,
-                        containerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                )
-            }
-        }
-
-        HomeEntryCard(
-            icon = Icons.Filled.Bookmark,
-            title = "我的标签",
-            subtitle = when {
-                selectedTags.isEmpty() -> "按兴趣看热点（当前：全部）"
-                else -> "已选 ${selectedTags.size} 个：${selectedTags.joinToString("、")}"
-            },
-            onClick = {
-                val token =
-                    if (selectedTags.isEmpty()) "" else selectedTags.sorted().joinToString("|")
-                onPickTagFeed(token)
-            },
-        )
-        HomeEntryCard(
-            icon = Icons.Filled.Favorite,
-            title = "孩子推荐",
-            subtitle = "孩子发来的链接会出现在这里。",
-            onClick = onChildChannel,
-        )
-        HomeEntryCard(
-            icon = Icons.Filled.Whatshot,
-            title = "今日年轻人话题",
-            subtitle = "换换口味，看看年轻人在讨论什么梗或话题。",
-            onClick = onTrendChannel,
-        )
-
-        WarmPrimaryButton(
-            onClick = onReminder,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-        ) {
-            Text("发一条温情提醒", style = MaterialTheme.typography.labelLarge)
-        }
-
-        OutlinedButton(
-            onClick = onSwitchRole,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-        ) {
-            Text(
-                "切换身份",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeEntryCard(
-    icon: ImageVector,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit,
-) {
-    val ink = MaterialTheme.colorScheme.secondary
-    val iconBg = ink.copy(alpha = 0.10f)
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 20.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(iconBg),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = ink,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-            Column(
-                modifier = Modifier
-                    .padding(start = 16.dp)
-                    .weight(1f),
-            ) {
-                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-        }
     }
 }

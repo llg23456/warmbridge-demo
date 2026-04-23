@@ -16,6 +16,10 @@ import androidx.compose.ui.platform.LocalContext
 object WbAssetPhotos {
     const val ROLE_SELECT_HERO = "photos/role_select_hero.png"
     const val REMINDER_DIALOG_HEADER = "photos/reminder_dialog_header.png"
+    /** 首页底部装饰线稿，建议透明度在代码中再乘 0.1；见 assets/photos/README.txt */
+    const val PARENT_HOME_WATERMARK = "photos/parent_home_watermark.png"
+    /** 列表空状态插画，约 120×120 dp 区域 */
+    const val ILL_EMPTY_FEED = "photos/ill_empty_feed.png"
 }
 
 /**

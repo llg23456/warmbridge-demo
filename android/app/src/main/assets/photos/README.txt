@@ -1,17 +1,20 @@
-暖桥 Demo — 自定义插画/背景图放置说明=====================================
+暖桥 Demo — 自定义插画 / 背景图（可选）
+=====================================
 
-请将你的图片文件放在与本 README同一目录下（assets/photos/），并使用下列文件名（建议 PNG 或 JPG）：
+请将 PNG 或 JPG 放在与本 README 同一目录：`android/app/src/main/assets/photos/`
+
+已有 / 推荐文件名：
 
 1) role_select_hero.png
-   - 用途：启动页（角色选择）中部插画区（桥/连接、暖色氛围）
-   - 建议比例：约 16:9 或 3:2，宽度足够即可；显示高度约 240dp，会 crop 适配
+   - 选角页中部插画
 
 2) reminder_dialog_header.png
-   - 用途：定时提醒到达时，应用内弹窗顶部装饰图（暖光/抽象图形）
-   - 建议比例：宽幅横图；显示高度约 200dp
+   - 温情提醒弹窗顶图
 
-可选（若暂时没有对应文件，App 会用浅色占位背景，不影响使用）：
-3) parent_header_decoration.png
-   - 用途：家长首页顶部装饰（可不提供）
+3) parent_home_watermark.png  （首页优化新增）
+   - 家长首页底部装饰线稿/插画，代码中以约 10% 透明度平铺；可不提供则该区域为透明占位
 
-放置后无需改代码；若文件名不同，请改为上述名称或修改 AssetImage.kt 中的常量。
+4) ill_empty_feed.png  （列表空状态）
+   - 「今日热点」等列表无数据时中央展示，建议约 240×240 px 以上，显示区域约 120dp
+
+代码常量见：`com.warmbridge.demo.ui.components.WbAssetPhotos`

@@ -171,4 +171,6 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 
 - [联调问题报告.md](联调问题报告.md) — 网络、明文策略、`/api/explain` 与缓存等  
 - [GitHub上传指南.md](GitHub上传指南.md) — 推送仓库、协作者内网与密钥  
+- [家长端底部导航-产品方案.md](家长端底部导航-产品方案.md) — 双端三 Tab 与 AIGC 改进路线（定稿）  
+- [界面实现规范与资源清单.md](界面实现规范与资源清单.md) — 改界面前的组件约定、可选插画清单、验收项  
 - `server/README.md` 为指向本仓库说明的简短入口（若存在）  

@@ -32,6 +32,8 @@ data class ExplainResponse(
 data class ShareRequest(
     @SerializedName("url") val url: String,
     @SerializedName("note") val note: String = "",
+    /** 链接框内用户粘贴的整段口令，与 url 一并提交便于服务端抽标题与联网检索 */
+    @SerializedName("raw_paste") val rawPaste: String = "",
     @SerializedName("parent_user_id") val parentUserId: String = "parent_demo",
 )
 

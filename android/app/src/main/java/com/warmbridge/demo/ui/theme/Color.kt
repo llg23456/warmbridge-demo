@@ -8,11 +8,35 @@ val WbPageBg = Color(0xFFF7F5F2)
 /** 卡片 / 弹窗 / 输入框 */
 val WbSurface = Color(0xFFFFFFFF)
 
-/** 主色陶土 */
-val WbPrimary = Color(0xFFD4653A)
+/** 品牌主色（界面规范 #E07A3D） */
+val WbBrandOrange = Color(0xFFE07A3D)
+
+/** 主色（与 Material primary 对齐） */
+val WbPrimary = WbBrandOrange
 
 /** 主色按下 */
-val WbPrimaryPressed = Color(0xFFB8542E)
+val WbPrimaryPressed = Color(0xFFC96A32)
+
+/** 顶部渐变起点：主色 10% 透明度 */
+val WbHeaderGradientOrange = Color(0x1AE07A3D)
+
+/** Chip 未选背景 / 分段条背景 */
+val WbChipUnselectedBg = Color(0xFFF5F5F5)
+
+/** 规范辅助灰字 #666666 */
+val WbTextMuted = Color(0xFF666666)
+
+/** 来源标签浅底 */
+val WbSourceChipBg = Color(0xFFFFF5ED)
+
+/** 「我的」页背景（iOS 设置灰） */
+val WbMinePageBg = Color(0xFFF2F2F7)
+
+/** 卡片标题色 */
+val WbCardTitle = Color(0xFF212121)
+
+/** 水波纹 主色 15% */
+val WbRippleOrange = Color(0x26E07A3D)
 
 /** 辅色墨绿 */
 val WbSecondary = Color(0xFF2E5A4C)

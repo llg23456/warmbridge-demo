@@ -1,76 +1,155 @@
 package com.warmbridge.demo.ui.screens
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.warmbridge.demo.R
+import com.warmbridge.demo.ui.components.WarmHeaderGradientBackground
+import com.warmbridge.demo.ui.theme.WbBrandOrange
+import com.warmbridge.demo.ui.theme.WbTextMuted
 
 @Composable
 fun ChildHomeScreen(
     onShare: () -> Unit,
     onReminder: () -> Unit,
-    onSwitchRole: () -> Unit,
+    onGoToHotTab: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 20.dp)
-            .padding(top = 32.dp, bottom = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .verticalScroll(rememberScrollState()),
     ) {
-        Text("孩子端", style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onBackground)
-        Text(
-            "把有意思的视频链接发给父母，并写一句推荐语；也可以设一条鼓励或关心的定时提醒。",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        ChildActionCard(
-            icon = Icons.Filled.Share,
-            title = "分享给父母",
-            subtitle = "粘贴链接，让父母更容易理解",
-            onClick = onShare,
-        )
-        ChildActionCard(
-            icon = Icons.Filled.Alarm,
-            title = "温情提醒",
-            subtitle = "定时一条关心到 Ta 的通知栏",
-            onClick = onReminder,
-        )
-        OutlinedButton(
-            onClick = onSwitchRole,
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                .height(160.dp),
         ) {
-            Text(
-                "切换身份",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+            WarmHeaderGradientBackground(Modifier.matchParentSize())
+            Column(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.child_home_title),
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.child_home_intro),
+                    fontSize = 16.sp,
+                    color = WbTextMuted,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+        }
+
+        Column(
+            Modifier
+                .padding(horizontal = 20.dp)
+                .padding(top = 20.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            ChildActionCard(
+                icon = Icons.Filled.Share,
+                title = stringResource(R.string.child_share),
+                subtitle = stringResource(R.string.child_share_sub),
+                onClick = onShare,
             )
+            ChildActionCard(
+                icon = Icons.Filled.Alarm,
+                title = stringResource(R.string.child_reminder),
+                subtitle = stringResource(R.string.child_reminder_sub),
+                onClick = onReminder,
+            )
+
+            val hotInteraction = remember { MutableInteractionSource() }
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(16.dp),
+                        ambientColor = Color(0x26E07A3D),
+                        spotColor = Color(0x26E07A3D),
+                    )
+                    .clickable(
+                        interactionSource = hotInteraction,
+                        indication = ripple(color = Color(0x26E07A3D)),
+                        onClick = onGoToHotTab,
+                    ),
+                shape = RoundedCornerShape(16.dp),
+                color = WbBrandOrange,
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Whatshot,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp),
+                        )
+                        Text(
+                            text = stringResource(R.string.child_go_hot),
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White,
+                        )
+                    }
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
         }
     }
 }
@@ -88,8 +167,8 @@ private fun ChildActionCard(
             .fillMaxWidth()
             .height(88.dp),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -97,17 +176,22 @@ private fun ChildActionCard(
                 .fillMaxSize()
                 .padding(horizontal = 20.dp),
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(32.dp))
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = WbBrandOrange,
+                modifier = Modifier.size(32.dp),
+            )
             Column(
                 modifier = Modifier
                     .padding(start = 16.dp)
                     .weight(1f),
             ) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 Text(
                     subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp,
+                    color = WbTextMuted,
                     modifier = Modifier.padding(top = 4.dp),
                 )
             }

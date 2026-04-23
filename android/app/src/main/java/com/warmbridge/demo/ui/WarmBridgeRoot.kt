@@ -1,6 +1,5 @@
 package com.warmbridge.demo.ui
 
-import android.net.Uri
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
@@ -10,14 +9,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.warmbridge.demo.navigation.WbRoutes
 import com.warmbridge.demo.ui.components.ReminderInAppDialog
-import com.warmbridge.demo.ui.screens.ChildHomeScreen
 import com.warmbridge.demo.ui.screens.DetailScreen
-import com.warmbridge.demo.ui.screens.FeedScreen
-import com.warmbridge.demo.ui.screens.ParentHomeScreen
 import com.warmbridge.demo.ui.screens.ReminderScreen
 import com.warmbridge.demo.ui.screens.RoleSelectScreen
 import com.warmbridge.demo.ui.screens.ShareScreen
+import com.warmbridge.demo.ui.shell.ChildMainShell
+import com.warmbridge.demo.ui.shell.ParentMainShell
 
 @Composable
 fun WarmBridgeRoot(
@@ -27,47 +26,26 @@ fun WarmBridgeRoot(
 ) {
     val nav = rememberNavController()
     Box(modifier.fillMaxSize()) {
-        NavHost(navController = nav, startDestination = "role", modifier = Modifier.fillMaxSize()) {
-            composable("role") {
+        NavHost(navController = nav, startDestination = WbRoutes.Role, modifier = Modifier.fillMaxSize()) {
+            composable(WbRoutes.Role) {
                 RoleSelectScreen(
-                    onParent = { nav.navigate("parent") { popUpTo("role") } },
-                    onChild = { nav.navigate("child") { popUpTo("role") } },
-                )
-            }
-            composable("parent") {
-                ParentHomeScreen(
-                    onPickTagFeed = { tag ->
-                        val segment = if (tag.isBlank()) "ALL" else Uri.encode(tag)
-                        nav.navigate("feed/tag/$segment")
+                    onParent = {
+                        nav.navigate(WbRoutes.Parent) {
+                            popUpTo(WbRoutes.Role) { inclusive = true }
+                        }
                     },
-                    onChildChannel = { nav.navigate("feed/child/ALL") },
-                    onTrendChannel = { nav.navigate("feed/trend/ALL") },
-                    onReminder = { nav.navigate("reminder") },
-                    onSwitchRole = { nav.navigate("role") { popUpTo(0) } },
+                    onChild = {
+                        nav.navigate(WbRoutes.Child) {
+                            popUpTo(WbRoutes.Role) { inclusive = true }
+                        }
+                    },
                 )
             }
-            composable("child") {
-                ChildHomeScreen(
-                    onShare = { nav.navigate("share") },
-                    onReminder = { nav.navigate("reminder") },
-                    onSwitchRole = { nav.navigate("role") { popUpTo(0) } },
-                )
+            composable(WbRoutes.Parent) {
+                ParentMainShell(outerNav = nav)
             }
-            composable(
-                route = "feed/{channel}/{tag}",
-                arguments = listOf(
-                    navArgument("channel") { type = NavType.StringType },
-                    navArgument("tag") { type = NavType.StringType },
-                ),
-            ) { entry ->
-                val channel = entry.arguments!!.getString("channel")!!
-                val tag = entry.arguments!!.getString("tag")!!
-                FeedScreen(
-                    channel = channel,
-                    tagToken = tag,
-                    onOpenDetail = { id -> nav.navigate("detail/$id") },
-                    onBack = { nav.popBackStack() },
-                )
+            composable(WbRoutes.Child) {
+                ChildMainShell(outerNav = nav)
             }
             composable(
                 route = "detail/{id}",
@@ -79,12 +57,12 @@ fun WarmBridgeRoot(
                     onBack = { nav.popBackStack() },
                 )
             }
-            composable("share") {
+            composable(WbRoutes.Share) {
                 ShareScreen(
                     onDone = { nav.popBackStack() },
                 )
             }
-            composable("reminder") {
+            composable(WbRoutes.Reminder) {
                 ReminderScreen(
                     onBack = { nav.popBackStack() },
                 )
@@ -97,7 +75,7 @@ fun WarmBridgeRoot(
                 onAck = onDismissReminderDialog,
                 onReply = {
                     onDismissReminderDialog()
-                    nav.navigate("reminder")
+                    nav.navigate(WbRoutes.Reminder)
                 },
             )
         }

@@ -1,4 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">暖桥</string>
+
+    <string name="nav_home">首页</string>
+    <string name="nav_hot">今日热点</string>
+    <string name="nav_mine">我的</string>
+
+    <string name="parent_greeting_hint">今天想看些什么？</string>
+    <string name="parent_go_hot">去看今日热点</string>
+    <string name="parent_reminder_cta">发一条温情提醒</string>
+    <string name="parent_interest_summary_all">按兴趣：当前为全部</string>
+    <string name="parent_interest_summary_some">按兴趣：已选 %1$d 个（%2$s）</string>
+    <string name="parent_selection_chip">已选 %1$d 个</string>
+    <string name="parent_footer_warm_quote">今天也是关心家人的好日子 ☀️</string>
+
+    <string name="hot_title">今日热点</string>
+    <string name="hot_segment_interest">按兴趣</string>
+    <string name="hot_segment_child">孩子推荐</string>
+    <string name="hot_segment_trend">年轻人话题</string>
+
+    <string name="mine_title">我的</string>
+    <string name="mine_demo_parent">演示模式 · 家长</string>
+    <string name="mine_demo_child">演示模式 · 孩子</string>
+    <string name="mine_profile_name_parent">家中的长辈</string>
+    <string name="mine_profile_name_child">子女账号</string>
+    <string name="mine_profile_role_parent">角色：家长（演示）</string>
+    <string name="mine_profile_role_child">角色：子女（演示）</string>
+    <string name="mine_profile_edit_hint">资料为演示，可后续接入登录</string>
+    <string name="mine_switch_role">切换身份</string>
+    <string name="mine_reminder">温情提醒</string>
+    <string name="mine_about">关于暖桥 Demo</string>
+    <string name="mine_privacy">隐私与数据说明</string>
+    <string name="mine_about_message">暖桥 Demo：代际沟通与热点导读。版本见关于对话框。</string>
+    <string name="mine_privacy_message">演示环境：热点为白名单示例数据；大模型密钥仅保存在您自建的后端，勿提交公开仓库。</string>
+    <string name="mine_close">知道了</string>
+
+    <string name="child_home_title">孩子端</string>
+    <string name="child_home_intro">把有意思的内容链接发给父母，并写一句推荐语；也可以设一条关心的定时提醒。</string>
+    <string name="child_share">分享给父母</string>
+    <string name="child_share_sub">粘贴链接，让父母更容易理解</string>
+    <string name="child_reminder">温情提醒</string>
+    <string name="child_reminder_sub">定时一条关心到 Ta 的通知栏</string>
+    <string name="child_go_hot">逛逛今日热点</string>
+
+    <string name="feed_empty_hint">暂无内容</string>
+    <string name="cd_nav_home">首页</string>
+    <string name="cd_nav_hot">今日热点</string>
+    <string name="cd_nav_mine">我的</string>
 </resources>

@@ -68,7 +68,13 @@ val WbTypography = Typography(
     labelMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 17.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 22.sp,
+        lineHeight = 30.sp,
     ),
 )
