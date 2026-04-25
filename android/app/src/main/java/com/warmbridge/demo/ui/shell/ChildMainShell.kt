@@ -35,7 +35,7 @@ import com.warmbridge.demo.ui.screens.HotTopicsTabScreen
 import com.warmbridge.demo.ui.screens.MineScreen
 import kotlinx.coroutines.launch
 
-private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会")
+private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会", "数码", "吃瓜", "AI", "生活")
 
 @Composable
 fun ChildMainShell(
@@ -138,6 +138,8 @@ fun ChildMainShell(
                             restoreState = true
                         }
                     },
+                    onImageExplain = { outerNav.navigate(WbRoutes.ImageExplain) },
+                    onVideoQuick = { outerNav.navigate(WbRoutes.VideoQuick) },
                 )
             }
             composable(WbRoutes.ChildHot) {

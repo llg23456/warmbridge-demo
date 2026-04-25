@@ -12,9 +12,11 @@ import androidx.navigation.navArgument
 import com.warmbridge.demo.navigation.WbRoutes
 import com.warmbridge.demo.ui.components.ReminderInAppDialog
 import com.warmbridge.demo.ui.screens.DetailScreen
+import com.warmbridge.demo.ui.screens.ImageExplainScreen
 import com.warmbridge.demo.ui.screens.ReminderScreen
 import com.warmbridge.demo.ui.screens.RoleSelectScreen
 import com.warmbridge.demo.ui.screens.ShareScreen
+import com.warmbridge.demo.ui.screens.VideoQuickScreen
 import com.warmbridge.demo.ui.shell.ChildMainShell
 import com.warmbridge.demo.ui.shell.ParentMainShell
 
@@ -65,6 +67,26 @@ fun WarmBridgeRoot(
             composable(WbRoutes.Reminder) {
                 ReminderScreen(
                     onBack = { nav.popBackStack() },
+                )
+            }
+            composable(WbRoutes.ImageExplain) {
+                ImageExplainScreen(
+                    onBack = { nav.popBackStack() },
+                    onDoneToDetail = { id ->
+                        nav.navigate(WbRoutes.detail(id)) {
+                            popUpTo(WbRoutes.ImageExplain) { inclusive = true }
+                        }
+                    },
+                )
+            }
+            composable(WbRoutes.VideoQuick) {
+                VideoQuickScreen(
+                    onBack = { nav.popBackStack() },
+                    onDoneToDetail = { id ->
+                        nav.navigate(WbRoutes.detail(id)) {
+                            popUpTo(WbRoutes.VideoQuick) { inclusive = true }
+                        }
+                    },
                 )
             }
         }

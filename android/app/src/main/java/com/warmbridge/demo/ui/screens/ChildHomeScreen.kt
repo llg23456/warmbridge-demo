@@ -17,6 +17,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material3.Card
@@ -47,6 +49,8 @@ fun ChildHomeScreen(
     onShare: () -> Unit,
     onReminder: () -> Unit,
     onGoToHotTab: () -> Unit,
+    onImageExplain: () -> Unit = {},
+    onVideoQuick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -97,6 +101,18 @@ fun ChildHomeScreen(
                 title = stringResource(R.string.child_reminder),
                 subtitle = stringResource(R.string.child_reminder_sub),
                 onClick = onReminder,
+            )
+            ChildActionCard(
+                icon = Icons.Filled.Image,
+                title = stringResource(R.string.media_image_title),
+                subtitle = stringResource(R.string.media_image_sub),
+                onClick = onImageExplain,
+            )
+            ChildActionCard(
+                icon = Icons.Filled.Link,
+                title = stringResource(R.string.media_video_title),
+                subtitle = stringResource(R.string.media_video_sub),
+                onClick = onVideoQuick,
             )
 
             val hotInteraction = remember { MutableInteractionSource() }

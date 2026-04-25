@@ -16,6 +16,8 @@ object WbRoutes {
 
     const val Reminder = "reminder"
     const val Share = "share"
+    const val ImageExplain = "image_explain"
+    const val VideoQuick = "video_quick"
 
     fun detail(id: String) = "detail/$id"
 }

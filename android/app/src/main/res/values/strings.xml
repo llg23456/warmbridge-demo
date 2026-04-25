@@ -44,6 +44,22 @@
     <string name="child_go_hot">逛逛今日热点</string>
 
     <string name="feed_empty_hint">暂无内容</string>
+
+    <string name="media_image_title">图片识梗</string>
+    <string name="media_image_sub">选截图，识别字再讲给长辈</string>
+    <string name="media_video_title">视频快解析</string>
+    <string name="media_video_sub">粘链接，用标题简介速读</string>
+    <string name="image_explain_intro">从相册选一张带字的截图或表情包，上传后由服务端识别文字，再用长辈能懂的话讲解。</string>
+    <string name="image_explain_pick">从相册选择图片</string>
+    <string name="image_explain_upload">上传并讲解</string>
+    <string name="image_explain_legal">请仅上传您有权使用的图片；勿上传他人清晰肖像或侵权内容。识别结果仅供家庭交流参考。</string>
+    <string name="video_quick_intro">把 App 里复制的整段口令粘贴到下面一个框即可（须包含 https 开头的链接）。服务端只使用页面的标题、简介与封面等信息，不做整段音视频理解。</string>
+    <string name="video_quick_paste_label">粘贴分享口令或链接</string>
+    <string name="video_quick_paste_hint">可粘贴抖音/B 站等整段分享文案…</string>
+    <string name="video_quick_open_link">跳转视频 / 网页</string>
+    <string name="video_quick_parsing">正在解析，请稍候…</string>
+    <string name="detail_loading_followup">正在按追问生成解读…</string>
+
     <string name="cd_nav_home">首页</string>
     <string name="cd_nav_hot">今日热点</string>
     <string name="cd_nav_mine">我的</string>

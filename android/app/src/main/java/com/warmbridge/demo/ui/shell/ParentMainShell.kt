@@ -35,7 +35,7 @@ import com.warmbridge.demo.ui.screens.MineScreen
 import com.warmbridge.demo.ui.screens.ParentHomeScreen
 import kotlinx.coroutines.launch
 
-private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会")
+private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会", "数码", "吃瓜", "AI", "生活")
 
 @Composable
 fun ParentMainShell(
@@ -140,6 +140,8 @@ fun ParentMainShell(
                         }
                     },
                     onReminder = { outerNav.navigate(WbRoutes.Reminder) },
+                    onImageExplain = { outerNav.navigate(WbRoutes.ImageExplain) },
+                    onVideoQuick = { outerNav.navigate(WbRoutes.VideoQuick) },
                 )
             }
             composable(WbRoutes.ParentHot) {

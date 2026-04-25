@@ -27,6 +27,35 @@ data class ExplainResponse(
     @SerializedName("background") val background: String,
     @SerializedName("glossary") val glossary: String,
     @SerializedName("disclaimer") val disclaimer: String,
+    @SerializedName("from_llm") val fromLlm: Boolean = false,
+    @SerializedName("suggested_questions") val suggestedQuestions: List<String> = emptyList(),
+)
+
+data class ImageExplainResponse(
+    @SerializedName("item_id") val itemId: String,
+    @SerializedName("ocr_text") val ocrText: String = "",
+)
+
+data class VideoQuickRequest(
+    /** 单框整段粘贴（推荐） */
+    @SerializedName("paste") val paste: String = "",
+    @SerializedName("url") val url: String = "",
+    @SerializedName("raw_paste") val rawPaste: String = "",
+)
+
+data class VideoQuickResponse(
+    @SerializedName("item_id") val itemId: String,
+)
+
+data class TtsRequest(
+    @SerializedName("text") val text: String,
+)
+
+data class TtsResponseDto(
+    @SerializedName("ok") val ok: Boolean,
+    @SerializedName("from_llm") val fromLlm: Boolean = false,
+    @SerializedName("message") val message: String = "",
+    @SerializedName("audio_base64") val audioBase64: String? = null,
 )
 
 data class ShareRequest(

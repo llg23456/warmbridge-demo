@@ -62,6 +62,8 @@ fun ParentHomeScreen(
     onSelectedTagsChange: (Set<String>) -> Unit,
     onGoToHotTab: () -> Unit,
     onReminder: () -> Unit,
+    onImageExplain: () -> Unit = {},
+    onVideoQuick: () -> Unit = {},
 ) {
     val infinite = rememberInfiniteTransition(label = "sunSway")
     val sunRotate by infinite.animateFloat(
@@ -174,6 +176,68 @@ fun ParentHomeScreen(
 
             val hotInteraction = remember { MutableInteractionSource() }
             val reminderInteraction = remember { MutableInteractionSource() }
+            val imgInteraction = remember { MutableInteractionSource() }
+            val vidInteraction = remember { MutableInteractionSource() }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(88.dp)
+                        .clickable(
+                            interactionSource = imgInteraction,
+                            indication = ripple(color = Color(0x26E07A3D)),
+                            onClick = onImageExplain,
+                        ),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.5.dp, WbBrandOrange),
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            stringResource(R.string.media_image_title),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            stringResource(R.string.media_image_sub),
+                            fontSize = 13.sp,
+                            color = WbTextMuted,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(88.dp)
+                        .clickable(
+                            interactionSource = vidInteraction,
+                            indication = ripple(color = Color(0x26E07A3D)),
+                            onClick = onVideoQuick,
+                        ),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.5.dp, WbBrandOrange),
+                ) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            stringResource(R.string.media_video_title),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            stringResource(R.string.media_video_sub),
+                            fontSize = 13.sp,
+                            color = WbTextMuted,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                    }
+                }
+            }
+
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
