@@ -4,10 +4,9 @@ from fastapi import APIRouter, HTTPException
 
 from app.schemas import FeedItem, FeedResponse
 from app.services import feed_mock, store
+from app.tags_catalog import TAGS_LIST
 
 router = APIRouter(prefix="/api", tags=["feed"])
-
-TAGS_LIST = ["科技", "军事", "人文", "健康", "社会"]
 
 
 @router.get("/tags")

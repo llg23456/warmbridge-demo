@@ -36,6 +36,66 @@ _MOCK: list[FeedItem] = [
         updated_at="2026-04-13",
     ),
     FeedItem(
+        id="m4",
+        title="春季过敏与用药安全提醒",
+        summary="医生科普花粉季防护，提醒长辈勿自行加量服药，不适及时就诊。",
+        source="新华网",
+        url="https://www.news.cn/health/",
+        tag="健康",
+        channel="tag",
+        updated_at="2026-04-12",
+    ),
+    FeedItem(
+        id="m5",
+        title="新款手机续航与系统更新引关注",
+        summary="数码媒体讨论大电池与 AI 功能对耗电的影响，建议关闭不必要后台刷新。",
+        source="新华网",
+        url="https://www.news.cn/tech/",
+        tag="数码",
+        channel="tag",
+        updated_at="2026-04-11",
+    ),
+    FeedItem(
+        id="m6",
+        title="网友热议一档综艺名场面",
+        summary="节目片段在社交平台二次传播，评论区多围绕「松弛感」与代际审美差异。",
+        source="澎湃新闻",
+        url="https://www.thepaper.cn/",
+        tag="吃瓜",
+        channel="tag",
+        updated_at="2026-04-10",
+    ),
+    FeedItem(
+        id="m7",
+        title="大模型辅助写文案：边界在哪？",
+        summary="讨论 AI 生成内容的标注与版权，普通用户宜辨别来源、勿轻信「权威口吻」。",
+        source="新华网",
+        url="https://www.news.cn/tech/",
+        tag="AI",
+        channel="tag",
+        updated_at="2026-04-09",
+    ),
+    FeedItem(
+        id="m8",
+        title="社区便民服务线上预约试点",
+        summary="多地推水电维修、助老餐预约小程序，长辈可请子女协助首次绑定。",
+        source="新华网",
+        url="https://www.news.cn/society/",
+        tag="生活",
+        channel="tag",
+        updated_at="2026-04-08",
+    ),
+    FeedItem(
+        id="m9",
+        title="志愿服务与邻里互助报道",
+        summary="媒体报道社区互助驿站，鼓励年轻人与长辈结对使用智能手机办事。",
+        source="新华网",
+        url="https://www.news.cn/society/",
+        tag="社会",
+        channel="tag",
+        updated_at="2026-04-07",
+    ),
+    FeedItem(
         id="t1",
         title="「梗」科普：什么是「显眼包」",
         summary="年轻人常用词，多指爱出风头又有点可爱的人或行为，常带调侃语气。",
@@ -47,14 +107,21 @@ _MOCK: list[FeedItem] = [
     ),
 ]
 
+_DAILY_DIGEST: list[FeedItem] = []
+
+
+def replace_daily_digest(items: list[FeedItem]) -> None:
+    global _DAILY_DIGEST
+    _DAILY_DIGEST = list(items)
+
 
 def all_mock_items() -> list[FeedItem]:
-    return list(_MOCK)
+    return list(_MOCK) + list(_DAILY_DIGEST)
 
 
 def filter_by_tag(tag: str | None) -> list[FeedItem]:
     """tag 为空表示全部；多个标签用 | 分隔（与 App 导航约定一致），取并集。"""
-    base = [i for i in _MOCK if i.channel == "tag"]
+    base = [i for i in _MOCK + _DAILY_DIGEST if i.channel == "tag"]
     if not tag or not tag.strip():
         return base
     tags = {t.strip() for t in tag.split("|") if t.strip()}

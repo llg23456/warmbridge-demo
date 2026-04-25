@@ -34,6 +34,37 @@ class ExplainResponse(BaseModel):
     disclaimer: str
     # True 表示 plain/background 来自蓝心解析成功；离线占位为 False（客户端可忽略）
     from_llm: bool = False
+    # 固定 3 条口语短追问（≤14 字），离线时默认兜底
+    suggested_questions: list[str] = Field(default_factory=list)
+
+
+class ImageExplainResponse(BaseModel):
+    item_id: str
+    ocr_text: str = ""
+
+
+class VideoQuickRequest(BaseModel):
+    """单框粘贴用 paste；兼容旧版 url + raw_paste。"""
+    paste: str = ""
+    url: str = ""
+    raw_paste: str = ""
+
+
+class VideoQuickResponse(BaseModel):
+    item_id: str
+
+
+class TtsRequest(BaseModel):
+    text: str
+
+
+class TtsResponse(BaseModel):
+    """统一 JSON：成功时带 base64 音频；失败时 ok=false，HTTP 仍为 200 便于端上降级。"""
+
+    ok: bool
+    from_llm: bool = False
+    message: str = ""
+    audio_base64: Optional[str] = None
 
 
 class ShareRequest(BaseModel):
