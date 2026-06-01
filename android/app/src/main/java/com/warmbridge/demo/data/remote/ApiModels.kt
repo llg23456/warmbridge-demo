@@ -70,3 +70,37 @@ data class ShareResponse(
     @SerializedName("ok") val ok: Boolean,
     @SerializedName("item_id") val itemId: String,
 )
+
+data class PopularVideoStartRequest(
+    @SerializedName("item_id") val itemId: String,
+)
+
+data class PopularVideoStartResponse(
+    @SerializedName("job_id") val jobId: String,
+    @SerializedName("reused") val reused: Boolean = false,
+    @SerializedName("message") val message: String = "",
+)
+
+data class PopularVideoJobDto(
+    @SerializedName("job_id") val jobId: String,
+    @SerializedName("item_id") val itemId: String,
+    @SerializedName("title") val title: String = "",
+    @SerializedName("status") val status: String = "running",
+    @SerializedName("step") val step: String = "prepare",
+    @SerializedName("progress") val progress: Int = 0,
+    @SerializedName("error_step") val errorStep: String = "",
+    @SerializedName("error_message") val errorMessage: String = "",
+    @SerializedName("video_url") val videoUrl: String = "",
+    @SerializedName("share_page_url") val sharePageUrl: String = "",
+    @SerializedName("narration_preview") val narrationPreview: String = "",
+    @SerializedName("created_at") val createdAt: Double = 0.0,
+)
+
+data class PopularVideoStatusResponse(
+    @SerializedName("job") val job: PopularVideoJobDto,
+    @SerializedName("step_label") val stepLabel: String = "",
+)
+
+data class PopularVideoJobsResponse(
+    @SerializedName("jobs") val jobs: List<PopularVideoJobDto>,
+)

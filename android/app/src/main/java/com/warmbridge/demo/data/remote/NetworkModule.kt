@@ -13,18 +13,18 @@ object NetworkModule {
         level = HttpLoggingInterceptor.Level.BASIC
     }
 
-    private val client: OkHttpClient = OkHttpClient.Builder()
+    val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         // 连接阶段失败尽快提示；长耗时接口靠 readTimeout
         .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .addInterceptor(logging)
         .build()
 
     val api: WarmBridgeApi by lazy {
         Retrofit.Builder()
             .baseUrl(BuildConfig.API_BASE_URL)
-            .client(client)
+            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(WarmBridgeApi::class.java)

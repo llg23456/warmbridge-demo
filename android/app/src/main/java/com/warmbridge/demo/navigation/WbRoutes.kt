@@ -20,4 +20,7 @@ object WbRoutes {
     const val VideoQuick = "video_quick"
 
     fun detail(id: String) = "detail/$id"
+
+    fun videoPopular(itemId: String, jobId: String = "") =
+        if (jobId.isBlank()) "video_popular/$itemId" else "video_popular/$itemId?jobId=$jobId"
 }

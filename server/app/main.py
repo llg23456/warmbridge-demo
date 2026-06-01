@@ -8,7 +8,7 @@ from apscheduler.triggers.cron import CronTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import explain, feed, health, image, share, tts, video_quick
+from app.routers import explain, feed, health, image, share, tts, video_popular, video_quick
 from app.services import feed_digest
 
 _scheduler = BackgroundScheduler()
@@ -45,3 +45,4 @@ app.include_router(share.router)
 app.include_router(image.router)
 app.include_router(video_quick.router)
 app.include_router(tts.router)
+app.include_router(video_popular.router)

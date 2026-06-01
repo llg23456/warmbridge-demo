@@ -77,7 +77,7 @@ fun FeedListContent(
             }
             items = NetworkModule.api.feed(tag = tagParam, channel = ch).items
         } catch (e: Exception) {
-            err = humanizeNetworkError(e)
+            err = humanizeNetworkError(e) ?: "加载失败，请检查网络与后端地址。"
             items = emptyList()
         } finally {
             loading = false

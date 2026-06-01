@@ -104,7 +104,7 @@ fun VideoQuickScreen(
                             )
                             onDoneToDetail(resp.itemId)
                         } catch (e: Exception) {
-                            err = humanizeNetworkError(e)
+                            err = humanizeNetworkError(e) ?: "解析失败，请检查网络。"
                         } finally {
                             loading = false
                         }

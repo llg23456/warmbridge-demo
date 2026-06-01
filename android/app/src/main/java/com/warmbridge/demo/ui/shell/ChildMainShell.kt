@@ -179,6 +179,9 @@ fun ChildMainShell(
                             popUpTo(WbRoutes.Role) { inclusive = true }
                         }
                     },
+                    onOpenPopularVideoJob = { itemId, jobId ->
+                        outerNav.navigate(WbRoutes.videoPopular(itemId, jobId))
+                    },
                 )
             }
         }

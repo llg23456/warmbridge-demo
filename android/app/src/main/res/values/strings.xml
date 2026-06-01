@@ -60,6 +60,11 @@
     <string name="video_quick_parsing">正在解析，请稍候…</string>
     <string name="detail_loading_followup">正在按追问生成解读…</string>
 
+    <string name="mine_popular_video_section">通俗视频任务</string>
+    <string name="mine_popular_status_done">已完成</string>
+    <string name="mine_popular_status_failed">失败</string>
+    <string name="mine_popular_status_running">生成中 %1$d%%</string>
+
     <string name="cd_nav_home">首页</string>
     <string name="cd_nav_hot">今日热点</string>
     <string name="cd_nav_mine">我的</string>

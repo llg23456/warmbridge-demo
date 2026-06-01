@@ -89,7 +89,9 @@ fun ShareScreen(onDone: () -> Unit) {
                                     snack.showSnackbar("发送未成功，请稍后重试。")
                                 }
                             } catch (e: Exception) {
-                                snack.showSnackbar(humanizeNetworkError(e))
+                                snack.showSnackbar(
+                                    humanizeNetworkError(e) ?: "分享失败，请稍后重试。",
+                                )
                             } finally {
                                 busy = false
                             }

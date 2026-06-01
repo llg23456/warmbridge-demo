@@ -48,6 +48,9 @@
 Thumbs.db
 Desktop.ini
 
+# 通俗视频合成输出（本地演示）
+server/data/popular_videos/
+
 # 日志与临时
 *.log
 *.tmp

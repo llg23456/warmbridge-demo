@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.warmbridge.demo.BuildConfig
 import com.warmbridge.demo.R
+import com.warmbridge.demo.data.remote.NetworkModule
+import com.warmbridge.demo.data.remote.PopularVideoJobDto
+import com.warmbridge.demo.util.humanizeNetworkError
 import com.warmbridge.demo.ui.theme.WbBrandOrange
 import com.warmbridge.demo.ui.theme.WbMinePageBg
 import com.warmbridge.demo.ui.theme.WbRippleOrange
@@ -50,10 +54,18 @@ fun MineScreen(
     isParent: Boolean,
     onReminder: () -> Unit,
     onSwitchRole: () -> Unit,
+    onOpenPopularVideoJob: (itemId: String, jobId: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     var showAbout by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var popularJobs by remember { mutableStateOf<List<PopularVideoJobDto>>(emptyList()) }
+    var jobsErr by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        runCatching { NetworkModule.api.popularVideoJobs().jobs }
+            .onSuccess { popularJobs = it }
+            .onFailure { jobsErr = humanizeNetworkError(it) ?: "加载任务列表失败。" }
+    }
 
     val displayName = if (isParent) {
         stringResource(R.string.mine_profile_name_parent)
@@ -140,6 +152,38 @@ fun MineScreen(
         }
 
         Spacer(Modifier.height(12.dp))
+
+        if (popularJobs.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.mine_popular_video_section),
+                fontSize = 14.sp,
+                color = WbTextMuted,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            MineSettingsGroupCard {
+                popularJobs.forEachIndexed { index, job ->
+                    val statusText = when (job.status) {
+                        "done" -> stringResource(R.string.mine_popular_status_done)
+                        "failed" -> stringResource(R.string.mine_popular_status_failed)
+                        else -> stringResource(R.string.mine_popular_status_running, job.progress)
+                    }
+                    MineRow(
+                        title = "${job.title.take(18)} · $statusText",
+                        onClick = { onOpenPopularVideoJob(job.itemId, job.jobId) },
+                        showDividerBelow = index < popularJobs.lastIndex,
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+        }
+        jobsErr?.let {
+            Text(
+                it,
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 14.sp,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
 
         MineSettingsGroupCard {
             MineRow(stringResource(R.string.mine_switch_role), onClick = onSwitchRole, showDividerBelow = true)

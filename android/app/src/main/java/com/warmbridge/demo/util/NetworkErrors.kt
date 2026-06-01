@@ -4,8 +4,19 @@ import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
+import kotlinx.coroutines.CancellationException
 
-fun humanizeNetworkError(e: Throwable): String {
+/** 页面离开导致的协程取消，不应展示成网络错误。 */
+fun isBenignComposeCancellation(e: Throwable): Boolean {
+    if (e is CancellationException) return true
+    val raw = (e.message ?: "").lowercase()
+    return raw.contains("left the composition") ||
+        raw.contains("job was cancelled") ||
+        raw.contains("standalonecoroutine was cancelled")
+}
+
+fun humanizeNetworkError(e: Throwable): String? {
+    if (isBenignComposeCancellation(e)) return null
     val raw = (e.message ?: e.javaClass.simpleName).trim()
     val cleartextBlocked =
         raw.contains("CLEARTEXT", ignoreCase = true) ||

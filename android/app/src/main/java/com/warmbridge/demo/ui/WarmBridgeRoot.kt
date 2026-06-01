@@ -16,6 +16,7 @@ import com.warmbridge.demo.ui.screens.ImageExplainScreen
 import com.warmbridge.demo.ui.screens.ReminderScreen
 import com.warmbridge.demo.ui.screens.RoleSelectScreen
 import com.warmbridge.demo.ui.screens.ShareScreen
+import com.warmbridge.demo.ui.screens.VideoPopularScreen
 import com.warmbridge.demo.ui.screens.VideoQuickScreen
 import com.warmbridge.demo.ui.shell.ChildMainShell
 import com.warmbridge.demo.ui.shell.ParentMainShell
@@ -56,6 +57,27 @@ fun WarmBridgeRoot(
                 val id = entry.arguments!!.getString("id")!!
                 DetailScreen(
                     itemId = id,
+                    onBack = { nav.popBackStack() },
+                    onOpenPopularVideo = { item ->
+                        nav.navigate(WbRoutes.videoPopular(item))
+                    },
+                )
+            }
+            composable(
+                route = "video_popular/{itemId}?jobId={jobId}",
+                arguments = listOf(
+                    navArgument("itemId") { type = NavType.StringType },
+                    navArgument("jobId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    },
+                ),
+            ) { entry ->
+                val itemId = entry.arguments!!.getString("itemId")!!
+                val jobId = entry.arguments!!.getString("jobId").orEmpty()
+                VideoPopularScreen(
+                    itemId = itemId,
+                    initialJobId = jobId.ifBlank { null },
                     onBack = { nav.popBackStack() },
                 )
             }

@@ -79,7 +79,7 @@ fun ImageExplainScreen(
                 copyUriToSessionCover(context, resp.itemId, uri)
                 onDoneToDetail(resp.itemId)
             } catch (e: Exception) {
-                err = humanizeNetworkError(e)
+                err = humanizeNetworkError(e) ?: "上传失败，请检查网络。"
             } finally {
                 loading = false
             }

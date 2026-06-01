@@ -38,4 +38,13 @@ interface WarmBridgeApi {
 
     @POST("api/tts")
     suspend fun tts(@Body body: TtsRequest): TtsResponseDto
+
+    @POST("api/video/popular/start")
+    suspend fun startPopularVideo(@Body body: PopularVideoStartRequest): PopularVideoStartResponse
+
+    @GET("api/video/popular/{jobId}/status")
+    suspend fun popularVideoStatus(@Path("jobId") jobId: String): PopularVideoStatusResponse
+
+    @GET("api/video/popular/jobs")
+    suspend fun popularVideoJobs(): PopularVideoJobsResponse
 }

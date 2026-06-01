@@ -88,3 +88,37 @@ class ReminderRequest(BaseModel):
 class ReminderResponse(BaseModel):
     ok: bool
     detail: str
+
+
+class PopularVideoStartRequest(BaseModel):
+    item_id: str
+
+
+class PopularVideoStartResponse(BaseModel):
+    job_id: str
+    reused: bool = False
+    message: str = ""
+
+
+class PopularVideoJobDto(BaseModel):
+    job_id: str
+    item_id: str
+    title: str = ""
+    status: str = "running"
+    step: str = "prepare"
+    progress: int = 0
+    error_step: str = ""
+    error_message: str = ""
+    video_url: str = ""
+    share_page_url: str = ""
+    narration_preview: str = ""
+    created_at: float = 0.0
+
+
+class PopularVideoStatusResponse(BaseModel):
+    job: PopularVideoJobDto
+    step_label: str = ""
+
+
+class PopularVideoJobsResponse(BaseModel):
+    jobs: list[PopularVideoJobDto]
