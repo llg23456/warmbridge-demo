@@ -223,6 +223,8 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | `VIVO_CHAT_URL` / `VIVO_CHAT_MODEL` | 否 | 蓝心 Chat Completions |
 | `VIVO_OCR_URL` / `VIVO_OCR_BUSINESSID` / `VIVO_OCR_POS` | 识图必填 businessid | 见 `.env.example` §8 |
 | `VIVO_TTS_ENGINEID` / `VIVO_TTS_VCN` / `VIVO_TTS_VAID` | 否 | §14 流式 TTS；签名头等已在代码中按文档处理 |
+| `POPULAR_VIDEO_USE_VIVO_MEDIA` | 否 | 通俗视频文生图开关；`false` 时仅封面 Ken Burns |
+| `VIVO_IMAGE_SIZE` | 否 | 文生图尺寸，默认 `2K` |
 | `WEB_SEARCH_ENABLED` | 否 | 分享解读辅助联网（内网可关） |
 
 完整注释见 **`server/.env.example`**。

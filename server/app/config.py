@@ -24,6 +24,14 @@ class Settings(BaseSettings):
     vivo_app_id: str = ""
     # 分享解读：DuckDuckGo Instant Answer 轻量检索（无需单独 API Key；内网/限流时可能为空）
     web_search_enabled: bool = True
+    # 通俗视频 D2：vivo 文生图/轮播（false 时 D1 仍可用 Ken Burns + 封面）
+    popular_video_use_vivo_media: bool = True
+    # §5 文生图
+    vivo_image_url: str = "https://api-ai.vivo.com.cn/api/v1/image_generation"
+    vivo_image_model: str = "Doubao-Seedream-4.5"
+    # §5：Seedream 最小约 1920×1920（3686400 px）；勿用 1280x720，合成层再裁 16:9
+    vivo_image_size: str = "2K"
+    vivo_image_timeout_sec: float = 90.0
     # §8 OCR：文档示例为 http://（若 HTTPS 可用可在 .env 覆盖）
     vivo_ocr_url: str = "http://api-ai.vivo.com.cn/ocr/general_recognition"
     vivo_ocr_businessid: str = Field(

@@ -16,6 +16,14 @@ def add_child_item(item: FeedItem) -> None:
     _child_items[item.id] = item
 
 
+def patch_child_item(item_id: str, **fields: object) -> None:
+    """后台补全分享条目（标题/封面/联网摘要等）。"""
+    it = _child_items.get(item_id)
+    if not it:
+        return
+    _child_items[item_id] = it.model_copy(update=fields)
+
+
 def put_session_item(item: FeedItem) -> None:
     """识图 / 视频快解析等会话条目：不进「孩子推荐」列表，但可被详情与解读命中。"""
     _session_items[item.id] = item

@@ -99,10 +99,12 @@ def status(job_id: str, request: Request):
     if not j:
         raise HTTPException(status_code=404, detail="任务不存在")
     step_labels = {
-        "prepare": "正在准备视频信息…",
-        "script": "正在撰写通俗讲解稿…",
+        "prepare": "正在准备视频信息与提取文字…",
+        "analyze": "正在分析内容并撰写口播…",
+        "media": "正在生成 AI 画面与语音…",
+        "script": "正在分析内容并撰写口播…",
         "tts": "正在合成语音…",
-        "merge": "正在把封面做成画面并合成视频…",
+        "merge": "正在合成轮播画面与语音…",
         "done": "完成",
     }
     return PopularVideoStatusResponse(

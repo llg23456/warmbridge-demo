@@ -1,5 +1,6 @@
 package com.warmbridge.demo.util
 
+import android.content.ClipData
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
@@ -7,6 +8,7 @@ import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.warmbridge.demo.BuildConfig
 import com.warmbridge.demo.data.remote.NetworkModule
@@ -42,6 +44,10 @@ suspend fun downloadPopularVideoToCache(context: Context, videoUrl: String): Str
 
 fun shareVideoFile(context: Context, localPath: String) {
     val file = File(localPath)
+    if (!file.isFile || file.length() < 3000) {
+        Toast.makeText(context, "视频还在准备中，请稍后再分享", Toast.LENGTH_SHORT).show()
+        return
+    }
     val uri = FileProvider.getUriForFile(
         context,
         "${BuildConfig.APPLICATION_ID}.fileprovider",
@@ -50,9 +56,16 @@ fun shareVideoFile(context: Context, localPath: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "video/mp4"
         putExtra(Intent.EXTRA_STREAM, uri)
+        putExtra(Intent.EXTRA_SUBJECT, "暖桥讲解视频")
         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        clipData = ClipData.newRawUri("video", uri)
     }
-    context.startActivity(Intent.createChooser(intent, "分享讲解视频"))
+    runCatching {
+        context.startActivity(Intent.createChooser(intent, "分享讲解视频"))
+        Toast.makeText(context, "请选择微信或 QQ 完成发送", Toast.LENGTH_SHORT).show()
+    }.onFailure {
+        Toast.makeText(context, "无法打开分享，请检查是否安装微信/QQ", Toast.LENGTH_LONG).show()
+    }
 }
 
 fun shareTextLink(context: Context, link: String) {

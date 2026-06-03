@@ -1,5 +1,6 @@
 package com.warmbridge.demo.ui.screens
 
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -19,8 +21,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -30,6 +34,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -49,6 +54,7 @@ fun ShareScreen(onDone: () -> Unit) {
     var rawPasteContext by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var sentOk by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
 
@@ -58,7 +64,7 @@ fun ShareScreen(onDone: () -> Unit) {
             TopAppBar(
                 title = { Text("分享给父母", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) {
+                    IconButton(onClick = onDone, enabled = !busy) {
                         Icon(Icons.Filled.Close, contentDescription = "关闭")
                     }
                 },
@@ -71,7 +77,7 @@ fun ShareScreen(onDone: () -> Unit) {
         bottomBar = {
             WarmPrimaryButton(
                 onClick = {
-                    if (!busy && url.isNotBlank()) {
+                    if (!busy && !sentOk && url.isNotBlank()) {
                         scope.launch {
                             busy = true
                             try {
@@ -84,13 +90,21 @@ fun ShareScreen(onDone: () -> Unit) {
                                     ),
                                 )
                                 if (r.ok) {
-                                    snack.showSnackbar("已发送成功，父母可在「孩子推荐」里看到。")
+                                    sentOk = true
+                                    snack.showSnackbar(
+                                        message = "已发送成功，父母可在「孩子推荐」里看到。",
+                                        duration = SnackbarDuration.Long,
+                                    )
                                 } else {
-                                    snack.showSnackbar("发送未成功，请稍后重试。")
+                                    snack.showSnackbar(
+                                        "发送未成功，请稍后重试。",
+                                        duration = SnackbarDuration.Long,
+                                    )
                                 }
                             } catch (e: Exception) {
                                 snack.showSnackbar(
                                     humanizeNetworkError(e) ?: "分享失败，请稍后重试。",
+                                    duration = SnackbarDuration.Long,
                                 )
                             } finally {
                                 busy = false
@@ -102,10 +116,17 @@ fun ShareScreen(onDone: () -> Unit) {
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 16.dp)
                     .height(56.dp),
-                enabled = !busy && url.isNotBlank(),
+                enabled = !busy && !sentOk && url.isNotBlank(),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text(if (busy) "发送中…" else "发送", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    when {
+                        busy -> "发送中…"
+                        sentOk -> "已发送"
+                        else -> "发送"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
         },
     ) { pad ->
@@ -122,6 +143,30 @@ fun ShareScreen(onDone: () -> Unit) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (sentOk) {
+                Spacer(Modifier.height(16.dp))
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Filled.CheckCircle,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            " 已发送成功！请让父母打开「孩子推荐」查看；封面与背景信息会在后台自动补全。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    }
+                }
+            }
             Spacer(Modifier.height(24.dp))
             OutlinedTextField(
                 value = url,
