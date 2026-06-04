@@ -27,6 +27,7 @@ async def video_quickparse(req: VideoQuickRequest):
     ctx = await link_preview.fetch_link_context(url)
     title = paste_intel.suggest_title_from_paste(raw, ctx.title)[:120] or "视频/链接快读"
     keywords = paste_intel.extract_keywords(f"{raw}\n{title}")
+    share_keywords = "，".join(keywords[:6])
     web_context = await web_lookup.build_web_context(keywords)
     desc = (ctx.description or "").strip()
     summary = desc[:500] if desc else title
@@ -44,6 +45,7 @@ async def video_quickparse(req: VideoQuickRequest):
         page_description=desc[:2000],
         preview_image_url=preview,
         web_context=web_context,
+        share_keywords=share_keywords,
     )
     store.put_session_item(item)
 
