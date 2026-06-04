@@ -90,14 +90,23 @@ fun VideoPopularScreen(
     var localVideoPath by remember { mutableStateOf<String?>(null) }
     var videoLoading by remember { mutableStateOf(false) }
     var downloadBusy by remember { mutableStateOf(false) }
+    var savedToGallery by remember { mutableStateOf(false) }
     var itemSource by remember { mutableStateOf<String?>(null) }
 
     val failed = job?.status == "failed"
     val done = job?.status == "done"
 
-    DisposableEffect(Unit) {
+    DisposableEffect(jobId, done, savedToGallery) {
         onDispose {
             cleanupPopularVideoCache(context)
+            val id = jobId
+            if (!id.isNullOrBlank() && done && !savedToGallery) {
+                scope.launch(Dispatchers.IO) {
+                    runCatching { NetworkModule.api.releasePopularVideo(id) }
+                        .onSuccess { Log.d(TAG, "released server mp4 jobId=$id") }
+                        .onFailure { Log.w(TAG, "release server mp4 failed jobId=$id", it) }
+                }
+            }
             Log.d(TAG, "left screen, popular video cache cleared")
         }
     }
@@ -231,6 +240,7 @@ fun VideoPopularScreen(
                                             "已保存到相册（DCIM/Camera），请在相册「视频」中查看",
                                             Toast.LENGTH_LONG,
                                         ).show()
+                                        savedToGallery = true
                                     } catch (e: Exception) {
                                         Toast.makeText(
                                             context,

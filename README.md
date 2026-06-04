@@ -1,6 +1,8 @@
 # 暖桥 WarmBridge · Demo
 
-面向「家长—子女」代际沟通的演示应用：**子女分享资讯、家长用大字号界面浏览**，并可 **图片识梗（OCR + 通俗解读）**、**视频链接快解析**、一键 **AI 讲给长辈听**（服务端聚合 vivo **蓝心 Chat**、**通用 OCR §8**、**流式 TTS §14** 等能力）。工程用于应用赛道 / MVP 演示，含 **Android 客户端** 与 **FastAPI 后端（BFF）**。
+面向「家长—子女」代际沟通的演示应用：**子女分享资讯、家长用大字号界面浏览**，并可 **图片识梗（OCR + 通俗解读）**、**视频链接快解析**、一键 **AI 讲给长辈听**，以及 **通俗视频生成**（D3 片头 + AI 轮播 + 口播 + 硬字幕）。服务端聚合 vivo **蓝心 Chat / OCR §8 / TTS §14 / 文生图 §5 / 图生视频 §6** 等能力。含 **Android 客户端** 与 **FastAPI BFF**。
+
+> **新对话接手**：先读 [暖桥-开发现状与速查.md](暖桥-开发现状与速查.md)（30 秒速览 + API + 环境变量）；改通俗视频读 [通俗视频生成-实现备忘.md](通俗视频生成-实现备忘.md)。
 
 ---
 
@@ -12,7 +14,7 @@
 | **孩子** | **分享链接**（含备注 / 粘贴口令）写入后端，家长端可见；首页 **图片识梗** |
 | **图片识梗** | 相册选图 → `POST /api/image/explain`（`multipart` 字段 **`file`**）→ OCR 文本再走蓝心解读；**详情页顶部展示本机缓存的原图**（不展示大段 OCR 原文，便于长辈对照画面） |
 | **视频快解析** | 粘贴分享文案或链接 → 服务端抽取信息生成会话条目，详情页解读流程与资讯一致 |
-| **通俗视频生成** | 详情页（孩子推荐/快解析·抖音/B 站）→ 封面幻灯片 + 口播 TTS 约 30～60 秒；可后台生成，在「我的」查看 |
+| **通俗视频生成** | D3 片头 + 文生图轮播 + 口播；og 失败时用 **Bing 图片封面**（免费）；联网 **DDG/Bing**；报告 `reports/{job_id}.md` §0 |
 | **年轻人话题** | 单独频道列表（与标签热点数据源一致，演示多入口） |
 
 **离线 / 降级约定**
@@ -38,15 +40,13 @@ warmbridge-demo/
 │   ├── app/src/main/...          # 界面、主题、网络、Session 原图缓存等
 │   └── local.properties          # 本地生成：SDK、API 根地址（勿提交 Git）
 ├── server/
-│   ├── .env                      # VIVO_APP_KEY、OCR/TTS 等（勿提交 Git）
-│   ├── .env.example              # 变量模板，可复制为 .env
-│   ├── app/
-│   │   ├── main.py               # FastAPI 入口
-│   │   ├── routers/              # feed、explain、share、image、video_quick、tts …
-│   │   ├── services/             # vivo_llm、vivo_ocr、vivo_tts、store、feed_mock …
-│   │   └── config.py
+│   ├── .env                      # 密钥（勿提交 Git）
+│   ├── .env.example
+│   ├── data/popular_videos/      # 成片 mp4 + reports/*.md（通俗视频报告）
+│   ├── app/services/             # 含 popular_video_*、web_lookup、vivo_* …
 │   └── requirements.txt
-├── 联调-图片OCR与TTS问题报告.md   # OCR 解析、TTS 握手等与官方文档对齐说明
+├── 暖桥-开发现状与速查.md         # **新对话必读**（30 秒速览）
+├── 通俗视频生成-实现备忘.md       # 通俗视频流水线细节
 ├── 问题排查清单-OCR-TTS与追问.md
 ├── 联调问题报告.md               # 明文 HTTP、explain 缓存等通用联调
 ├── GitHub上传指南.md
@@ -223,9 +223,12 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | `VIVO_CHAT_URL` / `VIVO_CHAT_MODEL` | 否 | 蓝心 Chat Completions |
 | `VIVO_OCR_URL` / `VIVO_OCR_BUSINESSID` / `VIVO_OCR_POS` | 识图必填 businessid | 见 `.env.example` §8 |
 | `VIVO_TTS_ENGINEID` / `VIVO_TTS_VCN` / `VIVO_TTS_VAID` | 否 | §14 流式 TTS；签名头等已在代码中按文档处理 |
-| `POPULAR_VIDEO_USE_VIVO_MEDIA` | 否 | 通俗视频文生图开关；`false` 时仅封面 Ken Burns |
-| `VIVO_IMAGE_SIZE` | 否 | 文生图尺寸，默认 `2K` |
-| `WEB_SEARCH_ENABLED` | 否 | 分享解读辅助联网（内网可关） |
+| `WEB_SEARCH_ENABLED` | 否 | `true`：分享 enrich + **通俗视频 analyze 前 DDG HTML/Bing 检索** |
+| `POPULAR_VIDEO_USE_VIVO_MEDIA` | 否 | 文生图轮播；`false` 仅封面 Ken Burns |
+| `POPULAR_VIDEO_USE_VIVO_INTRO` | 否 | D3 片头；`false` 仅 D2 轮播 |
+| `VIVO_VIDEO_MODEL` | 否 | 默认 `Doubao-Seedance-1.0-pro` |
+| `VIVO_IMAGE_SIZE` | 否 | 默认 **`2K`**（勿 1280x720） |
+| `VIVO_IMAGE_URL` | 否 | vivo 网关；勿填火山 `ark.volces.com` |
 
 完整注释见 **`server/.env.example`**。
 
@@ -241,7 +244,10 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | `POST /api/image/explain` 400 | 检查 **`file` 是否为真实图片字节**、`.env` 中 OCR **`businessid`** / **`VIVO_OCR_POS`**；详见 [联调-图片OCR与TTS问题报告.md](联调-图片OCR与TTS问题报告.md) |
 | TTS 日志 `WebSocket … HTTP 400` | 核对 **AppKey**、控制台 TTS 权限、`engineid`/`vcn` 匹配；参阅 [问题排查清单-OCR-TTS与追问.md](问题排查清单-OCR-TTS与追问.md) |
 | 配了 Key 解读仍像离线 | 看响应 **`from_llm`**；[联调问题报告.md](联调问题报告.md)（含 explain 缓存） |
-| 识图详情没有原图 | 原图仅 **本机缓存**；清缓存或换机后需重新上传；详见上文「图片识梗」 |
+| 识图详情没有原图 | 原图仅 **本机缓存**；清缓存或换机后需重新上传 |
+| 通俗视频 og/正文为空 | 抖音口令 **正常**；看 `reports/{job_id}.md` §0 |
+| 封面像文物/王室 | 「皇室战争」Bing 歧义；已消歧，**请重新生成**；或等文生图配额恢复 |
+| 文生图 code=1003 | vivo 限流 → 仅 **封面 Ken Burns**，口播仍正常；关 `POPULAR_VIDEO_USE_VIVO_MEDIA` 演示 |
 | 协作 / 推送 GitHub | [GitHub上传指南.md](GitHub上传指南.md) |
 
 ---
@@ -261,5 +267,6 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 - [GitHub上传指南.md](GitHub上传指南.md) — 推送仓库、协作者配置  
 - [家长端底部导航-产品方案.md](家长端底部导航-产品方案.md) — 双端 Tab 与产品路线  
 - [界面实现规范与资源清单.md](界面实现规范与资源清单.md) — UI 约定与资源  
-- [暖桥-开发现状与速查.md](暖桥-开发现状与速查.md) — **功能 / API / 技术栈 / 已知问题总览（新对话必读）**  
-- [通俗视频生成-实现备忘.md](通俗视频生成-实现备忘.md) — 通俗视频流水线、接口、UI 与 Logcat  
+- [暖桥-开发现状与速查.md](暖桥-开发现状与速查.md) — **新对话必读**（30 秒速览 / API / 环境变量 / 已知问题）
+- [通俗视频生成-实现备忘.md](通俗视频生成-实现备忘.md) — 流水线、报告 §0、代码索引、配额
+- [联调-图片OCR与TTS问题报告.md](联调-图片OCR与TTS问题报告.md) — OCR / TTS 联调

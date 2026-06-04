@@ -32,6 +32,19 @@ class Settings(BaseSettings):
     # §5：Seedream 最小约 1920×1920（3686400 px）；勿用 1280x720，合成层再裁 16:9
     vivo_image_size: str = "2K"
     vivo_image_timeout_sec: float = 90.0
+    # §6 图生视频（D3 片头）
+    popular_video_use_vivo_intro: bool = True
+    vivo_video_submit_url: str = "https://api-ai.vivo.com.cn/api/v1/submit_task"
+    vivo_video_query_url: str = "https://api-ai.vivo.com.cn/api/v1/query_task"
+    vivo_video_model: str = "Doubao-Seedance-1.0-pro"
+    vivo_video_duration_sec: int = 5
+    vivo_video_submit_timeout_sec: float = 60.0
+    vivo_video_query_timeout_sec: float = 30.0
+    vivo_video_poll_interval_sec: float = 5.0
+    vivo_video_poll_max_attempts: int = 60
+    # 通俗视频成片：未保存离开页面后超过此秒数删 mp4（中间 work 任务结束即删）
+    popular_video_mp4_idle_sec: int = 3600
+    popular_video_mp4_max_keep: int = 5
     # §8 OCR：文档示例为 http://（若 HTTPS 可用可在 .env 覆盖）
     vivo_ocr_url: str = "http://api-ai.vivo.com.cn/ocr/general_recognition"
     vivo_ocr_businessid: str = Field(

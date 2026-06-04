@@ -20,6 +20,21 @@ class LinkContext:
     title: str
     description: str
     image_url: str
+    page_text: str = ""
+
+
+def extract_visible_text(html_text: str, *, max_chars: int = 2000) -> str:
+    """去 script/style 与 HTML 标签，取可见正文前 N 字（无头浏览器）。"""
+    if not html_text:
+        return ""
+    text = re.sub(r"<(script|style|noscript)[^>]*>.*?</\1>", " ", html_text, flags=re.I | re.S)
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html.unescape(text)
+    text = re.sub(r"\s+", " ", text).strip()
+    if len(text) > max_chars:
+        return text[:max_chars].rstrip() + "…"
+    return text
 
 
 def _meta_content(html_text: str, *, prop: str | None = None, name: str | None = None) -> str:
@@ -56,7 +71,7 @@ async def fetch_link_context(page_url: str, timeout: float = 12.0) -> LinkContex
             r.raise_for_status()
             text = r.text[:800_000]
     except Exception:
-        return LinkContext(title="分享的链接", description="", image_url="")
+        return LinkContext(title="分享的链接", description="", image_url="", page_text="")
 
     title = "分享的链接"
     m = re.search(r"<title[^>]*>([^<]+)</title>", text, re.I)
@@ -75,7 +90,14 @@ async def fetch_link_context(page_url: str, timeout: float = 12.0) -> LinkContex
     elif image_url and not image_url.startswith(("http://", "https://")):
         image_url = urljoin(str(r.url), image_url)
 
-    return LinkContext(title=title, description=description, image_url=image_url[:800])
+    page_text = extract_visible_text(text, max_chars=2000)
+
+    return LinkContext(
+        title=title,
+        description=description,
+        image_url=image_url[:800],
+        page_text=page_text,
+    )
 
 
 async def fetch_page_title(url: str, timeout: float = 8.0) -> str:

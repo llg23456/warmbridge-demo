@@ -47,4 +47,7 @@ interface WarmBridgeApi {
 
     @GET("api/video/popular/jobs")
     suspend fun popularVideoJobs(): PopularVideoJobsResponse
+
+    @POST("api/video/popular/{jobId}/release")
+    suspend fun releasePopularVideo(@Path("jobId") jobId: String): Map<String, Boolean>
 }

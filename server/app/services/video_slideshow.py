@@ -213,6 +213,172 @@ def _mux_video_audio(
         raise RuntimeError("成片缺少视频画面轨。")
 
 
+def mp4_duration_seconds(mp4_path: Path) -> float:
+    if not mp4_path.is_file():
+        return 0.0
+    if ffprobe_available():
+        proc = subprocess.run(
+            [
+                "ffprobe", "-v", "error", "-show_entries", "format=duration",
+                "-of", "default=noprint_wrappers=1:nokey=1", str(mp4_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode == 0:
+            try:
+                return max(0.5, float((proc.stdout or "").strip()))
+            except ValueError:
+                pass
+    return 5.0
+
+
+def normalize_video_clip(
+    src_mp4: Path,
+    dest_mp4: Path,
+    *,
+    width: int = OUT_W,
+    height: int = OUT_H,
+    fps: int = FPS,
+) -> None:
+    """将任意 MP4 规范为 16:9 H.264 无音轨片段。"""
+    dest_mp4.parent.mkdir(parents=True, exist_ok=True)
+    vf = (
+        f"scale={width}:{height}:force_original_aspect_ratio=increase,"
+        f"crop={width}:{height},fps={fps},format=yuv420p,setsar=1"
+    )
+    _run(
+        [
+            "ffmpeg", "-y", "-i", str(src_mp4), "-vf", vf,
+            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+            "-an", str(dest_mp4),
+        ],
+        timeout=180,
+    )
+
+
+def _concat_video_clips(clip_paths: list[Path], out_mp4: Path, work: Path) -> None:
+    concat_txt = work / "body_concat.txt"
+    lines = []
+    for c in clip_paths:
+        p = c.resolve().as_posix().replace("'", "'\\''")
+        lines.append(f"file '{p}'")
+    concat_txt.write_text("\n".join(lines), encoding="utf-8")
+    _run(
+        [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(concat_txt),
+            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-r", str(FPS),
+            str(out_mp4),
+        ],
+        timeout=300,
+    )
+
+
+def merge_intro_slides_and_audio(
+    intro_mp4: Path,
+    image_paths: list[Path],
+    wav_path: Path,
+    out_mp4: Path,
+    *,
+    narration: str = "",
+    width: int = OUT_W,
+    height: int = OUT_H,
+    fps: int = FPS,
+) -> None:
+    """D3：片头 MP4 + 轮播 Ken Burns + 口播硬字幕。"""
+    if not ffmpeg_available():
+        raise RuntimeError("未找到 ffmpeg，请安装并加入 PATH 后重试。")
+    paths = [p for p in image_paths if p.is_file()]
+    if not intro_mp4.is_file():
+        if paths:
+            merge_slides_and_audio(
+                paths, wav_path, out_mp4, narration=narration, width=width, height=height, fps=fps,
+            )
+        else:
+            raise RuntimeError("无片头且无轮播图")
+        return
+
+    work = intro_mp4.parent
+    total_d = min(max(wav_duration_seconds(wav_path), 10.0), 90.0)
+    intro_norm = work / "intro_norm.mp4"
+    normalize_video_clip(intro_mp4, intro_norm, width=width, height=height, fps=fps)
+    intro_d = min(mp4_duration_seconds(intro_norm), total_d * 0.4)
+    intro_d = max(intro_d, 2.0)
+
+    body_clips: list[Path] = []
+    if paths:
+        body_d = max(total_d - intro_d, len(paths) * 4.0)
+        per = max(body_d / len(paths), 4.0)
+        _log.info(
+            "WbVideoGen merge mode=intro+carousel intro=%.1fs slides=%s per=%.1fs",
+            intro_d,
+            len(paths),
+            per,
+        )
+        for i, src in enumerate(paths):
+            frame_jpg = work / f"carousel_{i}.jpg"
+            clip_mp4 = work / f"carousel_{i}.mp4"
+            image_to_jpeg(src, frame_jpg, width=width, height=height)
+            render_ken_burns_clip(
+                frame_jpg, clip_mp4, duration_sec=per, width=width, height=height, fps=fps,
+            )
+            body_clips.append(clip_mp4)
+    else:
+        _log.info("WbVideoGen merge mode=intro_extend intro=%.1fs total=%.1fs", intro_d, total_d)
+        silent_mp4 = work / "silent_intro_extend.mp4"
+        _run(
+            [
+                "ffmpeg", "-y", "-stream_loop", "-1", "-i", str(intro_norm),
+                "-t", f"{total_d:.3f}",
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-an",
+                str(silent_mp4),
+            ],
+            timeout=180,
+        )
+        _mux_video_audio(silent_mp4, wav_path, out_mp4, narration=narration, work=work)
+        _log.info("merge ok intro_extend final=%s", out_mp4.stat().st_size)
+        return
+
+    # 片头可能长于 intro_d：截断到 intro_d
+    intro_cut = work / "intro_cut.mp4"
+    _run(
+        [
+            "ffmpeg", "-y", "-i", str(intro_norm), "-t", f"{intro_d:.3f}",
+            "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-an", str(intro_cut),
+        ],
+        timeout=120,
+    )
+    silent_mp4 = work / "silent_intro_carousel.mp4"
+    _concat_video_clips([intro_cut, *body_clips], silent_mp4, work)
+    _mux_video_audio(silent_mp4, wav_path, out_mp4, narration=narration, work=work)
+    _log.info("merge ok intro+carousel final=%s", out_mp4.stat().st_size)
+
+
+def merge_intro_cover_and_audio(
+    intro_mp4: Path,
+    image_path: Path,
+    wav_path: Path,
+    out_mp4: Path,
+    *,
+    narration: str = "",
+    width: int = OUT_W,
+    height: int = OUT_H,
+    fps: int = FPS,
+) -> None:
+    """D3 片头 + 封面 Ken Burns 兜底。"""
+    merge_intro_slides_and_audio(
+        intro_mp4,
+        [image_path] if image_path.is_file() else [],
+        wav_path,
+        out_mp4,
+        narration=narration,
+        width=width,
+        height=height,
+        fps=fps,
+    )
+
+
 def merge_cover_and_audio(
     image_path: Path,
     wav_path: Path,

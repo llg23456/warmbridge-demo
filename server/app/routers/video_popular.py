@@ -13,6 +13,7 @@ from app.schemas import (
     PopularVideoStatusResponse,
 )
 from app.services import popular_video_job, popular_video_store, store, video_platform
+from app.services.popular_video_cleanup import release_job_files
 from app.services.popular_video_job import output_mp4_path, schedule_job
 from app.services.popular_video_store import PopularVideoJob
 
@@ -127,4 +128,12 @@ def serve_file(filename: str):
     path = output_mp4_path(job_id)
     if not path.is_file():
         raise HTTPException(status_code=404, detail="file not ready")
+    popular_video_store.mark_mp4_served(job_id)
     return FileResponse(path, media_type="video/mp4", filename=f"warmbridge_{job_id}.mp4")
+
+
+@router.post("/video/popular/{job_id}/release")
+def release_job(job_id: str):
+    """客户端离开且未保存到相册时调用，删除服务端 mp4 以节省磁盘。"""
+    release_job_files(job_id)
+    return {"ok": True}

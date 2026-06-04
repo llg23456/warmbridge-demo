@@ -5,11 +5,13 @@ from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers import explain, feed, health, image, share, tts, video_popular, video_quick
 from app.services import feed_digest
+from app.services.popular_video_cleanup import purge_disk
 
 _scheduler = BackgroundScheduler()
 
@@ -21,6 +23,12 @@ async def lifespan(app: FastAPI):
         feed_digest.refresh_daily_digest,
         CronTrigger(hour=7, minute=0, timezone=ZoneInfo("Asia/Shanghai")),
         id="daily_digest",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        purge_disk,
+        IntervalTrigger(minutes=30),
+        id="popular_video_purge",
         replace_existing=True,
     )
     _scheduler.start()

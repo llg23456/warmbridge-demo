@@ -25,6 +25,9 @@ class PopularVideoJob:
     narration_preview: str = ""
     created_at: float = field(default_factory=time.time)
     updated_at: float = field(default_factory=time.time)
+    mp4_served: bool = False
+    released: bool = False
+    released_at: float = 0.0
 
 
 def new_job_id() -> str:
@@ -54,3 +57,19 @@ def find_running_for_item(item_id: str) -> Optional[PopularVideoJob]:
 
 def remove(job_id: str) -> None:
     _jobs.pop(job_id, None)
+
+
+def mark_mp4_served(job_id: str) -> None:
+    j = _jobs.get(job_id)
+    if j:
+        j.mp4_served = True
+        j.updated_at = time.time()
+
+
+def mark_released(job_id: str) -> None:
+    j = _jobs.get(job_id)
+    if j:
+        j.released = True
+        j.released_at = time.time()
+        j.video_url = ""
+        j.updated_at = time.time()

@@ -16,6 +16,8 @@ class FeedItem(BaseModel):
     preview_image_url: str = ""
     # 关键词联网摘要（DuckDuckGo 等），仅服务端用于解读
     web_context: str = ""
+    # 分享时从口令/备注抽出的 #话题# 等（逗号分隔），通俗视频检索与口播材料
+    share_keywords: str = ""
 
 
 class FeedResponse(BaseModel):
