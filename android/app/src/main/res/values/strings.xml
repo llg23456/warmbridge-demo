@@ -64,6 +64,10 @@
     <string name="mine_popular_status_done">已完成</string>
     <string name="mine_popular_status_failed">失败</string>
     <string name="mine_popular_status_running">生成中 %1$d%%</string>
+    <string name="mine_popular_status_interrupted">已中断</string>
+
+    <string name="popular_video_notify_title">暖桥 · 通俗视频</string>
+    <string name="popular_video_notify_body">「%1$s」已生成完成，点开看看吧</string>
 
     <string name="cd_nav_home">首页</string>
     <string name="cd_nav_hot">今日热点</string>

@@ -9,13 +9,13 @@ from app.config import settings
 
 _log = logging.getLogger(__name__)
 
-# 文档 §5：10 次/天、300 总量
-IMAGE_DAILY_MAX = 10
-IMAGE_TOTAL_MAX = 300
+# 文档 §5（2026-06-05）：50 次/天、500 总量
+IMAGE_DAILY_MAX = 50
+IMAGE_TOTAL_MAX = 500
 
-# 文档 §6：5 次/天、50 总量
-VIDEO_DAILY_MAX = 5
-VIDEO_TOTAL_MAX = 50
+# 文档 §6（2026-06-05）：10 次/天、200 总量
+VIDEO_DAILY_MAX = 10
+VIDEO_TOTAL_MAX = 200
 
 _day: str = ""
 _today_count: int = 0
@@ -113,11 +113,18 @@ def available_image_slots() -> int:
 
 
 def consume_image_slot() -> bool:
-    """调用 vivo 文生图前占位；成功返回 True。"""
+    """调用 vivo 文生图前占位 1 张；成功返回 True。"""
+    return consume_image_slots(1)
+
+
+def consume_image_slots(count: int = 1) -> bool:
+    """调用 vivo 文生图前占位；count 为本次预计消耗张数（组图 API 可按 usage.image_count）。"""
     global _today_count, _total_count
-    if not image_slots_available(1):
+    n = max(1, int(count))
+    if not image_slots_available(n):
         _log.info(
-            "WbVideoGen quota image skip today=%s/%s total=%s/%s",
+            "WbVideoGen quota image skip need=%s today=%s/%s total=%s/%s",
+            n,
             _today_count,
             IMAGE_DAILY_MAX,
             _total_count,
@@ -125,19 +132,22 @@ def consume_image_slot() -> bool:
         )
         return False
     _roll_day()
-    _today_count += 1
-    _total_count += 1
+    _today_count += n
+    _total_count += n
     return True
 
 
 def refund_image_slot() -> None:
-    """API 未产出图片时退回本地配额（失败/策略拦截重试前）。"""
+    """API 未产出图片时退回本地配额 1 张（失败/策略拦截重试前）。"""
+    refund_image_slots(1)
+
+
+def refund_image_slots(count: int = 1) -> None:
     global _today_count, _total_count
     _roll_day()
-    if _today_count > 0:
-        _today_count -= 1
-    if _total_count > 0:
-        _total_count -= 1
+    n = max(1, int(count))
+    _today_count = max(0, _today_count - n)
+    _total_count = max(0, _total_count - n)
 
 
 def sync_from_vivo_rate_limit(body: dict) -> None:

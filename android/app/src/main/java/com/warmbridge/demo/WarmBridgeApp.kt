@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 import com.warmbridge.demo.reminder.ReminderWorker
+import com.warmbridge.demo.video.PopularVideoPollWorker
 
 class WarmBridgeApp : Application() {
     override fun onCreate() {
@@ -17,6 +18,13 @@ class WarmBridgeApp : Application() {
             ).apply { description = "暖桥温情提醒" }
             (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(ch)
+            val videoCh = NotificationChannel(
+                PopularVideoPollWorker.CHANNEL_ID,
+                "通俗视频生成",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply { description = "通俗视频生成完成提醒" }
+            (getSystemService(NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(videoCh)
         }
     }
 }

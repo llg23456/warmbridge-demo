@@ -18,6 +18,14 @@ _log = logging.getLogger(__name__)
 _SUBMIT_API = "https://api-ai.vivo.com.cn/api/v1/submit_task"
 _QUERY_API = "https://api-ai.vivo.com.cn/api/v1/query_task"
 
+# 文档 §6 可选模型（调用须与账号权限一致）
+VIDEO_MODELS = (
+    "Doubao-Seedance-1.0-pro",
+    "Doubao-Seedance-2.0",
+    "Doubao-Seedance-2.0-fast",
+)
+DEFAULT_VIDEO_MODEL = "Doubao-Seedance-1.0-pro"
+
 _SUCCESS_STATUS = frozenset({"succeeded", "success", "completed", "done"})
 _FAIL_STATUS = frozenset({"failed", "error", "cancelled", "canceled"})
 
@@ -27,6 +35,15 @@ class VideoQuotaExceededError(RuntimeError):
         self.code = code
         self.body = body or {}
         super().__init__(f"图生视频配额/限流 code={code} {message}")
+
+
+class VideoContentPolicyError(RuntimeError):
+    """图生视频内容策略拦截（常见 code=1004）。"""
+
+    def __init__(self, code: int, message: str, *, body: dict[str, Any] | None = None) -> None:
+        self.code = code
+        self.body = body or {}
+        super().__init__(f"图生视频内容策略拦截 code={code} {message}")
 
 
 @dataclass
@@ -150,6 +167,8 @@ async def submit_vivo_video(
         _log.warning("WbVideoGen vivo video submit fail code=%s msg=%s", code, msg)
         if code == 1003:
             raise VideoQuotaExceededError(int(code or 1003), str(msg), body=body)
+        if code == 1004 or "violates policy" in str(msg).lower() or "policy" in str(msg).lower():
+            raise VideoContentPolicyError(int(code or 1004), str(msg), body=body)
         return VivoVideoTaskResult(
             skipped=True,
             skip_reason=f"submit fail code={code} {msg}",
@@ -285,7 +304,10 @@ async def generate_intro_video(
         duration_sec=duration_sec,
     )
     if submitted.skipped or not submitted.task_id:
-        _log.info("WbVideoGen intro skip: %s", submitted.skip_reason)
+        reason = submitted.skip_reason or ""
+        if "1004" in reason or "policy" in reason.lower():
+            raise VideoContentPolicyError(1004, reason)
+        _log.info("WbVideoGen intro skip: %s", reason)
         return None
 
     polled = await poll_vivo_video_task(submitted.task_id)

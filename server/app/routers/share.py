@@ -45,7 +45,7 @@ async def share(req: ShareRequest):
     # 先本地抽标题/摘要，立即入库返回（避免等 og + 维基导致孩子端卡 20～40s）
     title = paste_intel.suggest_title_from_paste(raw, "")[:120] or "孩子分享的链接"
     keywords = paste_intel.extract_keywords(f"{raw}\n{note}")
-    tag = keywords[0][:8] if keywords else "短视频"
+    tag = web_lookup.pick_display_tag(keywords)
     share_keywords = "，".join(keywords[:6])
 
     if note:

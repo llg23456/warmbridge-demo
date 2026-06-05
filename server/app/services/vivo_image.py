@@ -6,6 +6,7 @@ import logging
 import re
 import time
 import uuid
+from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
@@ -38,6 +39,13 @@ _MIN_PIXELS = 3686400
 _VIVO_IMAGE_API = "https://api-ai.vivo.com.cn/api/v1/image_generation"
 # 文档 §5 推荐；合成层会用 ffmpeg 再裁成 16:9
 _DEFAULT_SIZE = "2K"
+
+
+@dataclass
+class ImageGenResult:
+    urls: list[str] = field(default_factory=list)
+    image_count: int = 0
+    size: str = ""
 
 
 def _parse_size_pixels(size: str) -> int | None:
@@ -80,27 +88,73 @@ def _assert_vivo_endpoint(api_url: str) -> None:
         _log.warning("WbVideoGen image url not vivo default: %s", api_url[:100])
 
 
-def _extract_image_url(data: dict[str, Any]) -> str:
-    block = data.get("data")
-    if not isinstance(block, dict):
-        return ""
-    images = block.get("images")
-    if isinstance(images, list) and images:
-        first = images[0]
-        if isinstance(first, str) and first.startswith(("http://", "https://")):
-            return first.strip()
-        if isinstance(first, dict):
-            u = first.get("url") or first.get("image_url")
-            if isinstance(u, str) and u.startswith(("http://", "https://")):
-                return u.strip()
-    legacy = block.get("image")
-    if isinstance(legacy, str) and legacy.startswith(("http://", "https://")):
-        return legacy.strip()
+def _url_from_image_item(item: Any) -> str:
+    if isinstance(item, str) and item.startswith(("http://", "https://")):
+        return item.strip()
+    if isinstance(item, dict):
+        u = item.get("url") or item.get("image_url")
+        if isinstance(u, str) and u.startswith(("http://", "https://")):
+            return u.strip()
     return ""
 
 
-async def generate_image_url(prompt: str, *, size: str | None = None) -> str:
-    """提交文生图，返回图片 URL。"""
+def _extract_image_urls(body: dict[str, Any]) -> ImageGenResult:
+    """标准路径 data.images[]；废弃字段 data.image 仅作兜底。"""
+    block = body.get("data")
+    if not isinstance(block, dict):
+        return ImageGenResult()
+
+    urls: list[str] = []
+    images = block.get("images")
+    if isinstance(images, list):
+        for item in images:
+            u = _url_from_image_item(item)
+            if u:
+                urls.append(u)
+
+    if not urls:
+        legacy = block.get("image")
+        if legacy:
+            u = _url_from_image_item(legacy)
+            if u:
+                _log.warning("WbVideoGen image response used deprecated data.image; prefer data.images[]")
+                urls.append(u)
+
+    usage = block.get("usage")
+    image_count = len(urls)
+    if isinstance(usage, dict) and usage.get("image_count") is not None:
+        try:
+            image_count = max(image_count, int(usage["image_count"]))
+        except (TypeError, ValueError):
+            pass
+
+    return ImageGenResult(urls=urls, image_count=image_count or len(urls))
+
+
+def _build_parameters(
+    img_size: str,
+    *,
+    sequential_image_generation: str | None = None,
+    sequential_image_generation_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = {"size": img_size}
+    seq = (sequential_image_generation or "disabled").strip().lower()
+    if seq not in ("auto", "disabled"):
+        seq = "disabled"
+    params["sequential_image_generation"] = seq
+    if sequential_image_generation_options:
+        params["sequential_image_generation_options"] = dict(sequential_image_generation_options)
+    return params
+
+
+async def generate_images(
+    prompt: str,
+    *,
+    size: str | None = None,
+    sequential_image_generation: str = "disabled",
+    sequential_image_generation_options: dict[str, Any] | None = None,
+) -> ImageGenResult:
+    """提交文生图，返回全部图片 URL 与 usage.image_count。"""
     key = (settings.vivo_app_key or "").strip()
     if not key:
         raise RuntimeError("未配置 VIVO_APP_KEY")
@@ -117,7 +171,11 @@ async def generate_image_url(prompt: str, *, size: str | None = None) -> str:
     payload: dict[str, Any] = {
         "model": settings.vivo_image_model,
         "prompt": p[:800],
-        "parameters": {"size": img_size},
+        "parameters": _build_parameters(
+            img_size,
+            sequential_image_generation=sequential_image_generation,
+            sequential_image_generation_options=sequential_image_generation_options,
+        ),
     }
     params = {
         "module": "aigc",
@@ -131,10 +189,11 @@ async def generate_image_url(prompt: str, *, size: str | None = None) -> str:
 
     prompt_preview = p[:120].replace("\n", " ")
     _log.info(
-        "WbVideoGen image request url=%s model=%s size=%s prompt_len=%s preview=%s",
+        "WbVideoGen image request url=%s model=%s size=%s seq=%s prompt_len=%s preview=%s",
         api_url,
         settings.vivo_image_model,
         img_size,
+        payload["parameters"].get("sequential_image_generation"),
         len(p),
         prompt_preview,
     )
@@ -174,11 +233,34 @@ async def generate_image_url(prompt: str, *, size: str | None = None) -> str:
             raise QuotaExceededError(int(code or 1003), str(msg), body=body)
         raise RuntimeError(f"文生图失败 code={code} size={img_size} {msg}")
 
-    img_url = _extract_image_url(body)
-    if not img_url:
+    result = _extract_image_urls(body)
+    result.size = img_size
+    if not result.urls:
         raise RuntimeError(f"文生图响应无 images URL (size={img_size})")
-    _log.info("WbVideoGen image ok size=%s url=%s", img_size, img_url[:80])
-    return img_url
+    _log.info(
+        "WbVideoGen image ok size=%s count=%s first=%s",
+        img_size,
+        result.image_count or len(result.urls),
+        result.urls[0][:80],
+    )
+    return result
+
+
+async def generate_image_url(
+    prompt: str,
+    *,
+    size: str | None = None,
+    sequential_image_generation: str = "disabled",
+    sequential_image_generation_options: dict[str, Any] | None = None,
+) -> str:
+    """提交文生图，返回首张图片 URL（data.images[0].url）。"""
+    result = await generate_images(
+        prompt,
+        size=size,
+        sequential_image_generation=sequential_image_generation,
+        sequential_image_generation_options=sequential_image_generation_options,
+    )
+    return result.urls[0]
 
 
 async def download_image_bytes(url: str) -> bytes:

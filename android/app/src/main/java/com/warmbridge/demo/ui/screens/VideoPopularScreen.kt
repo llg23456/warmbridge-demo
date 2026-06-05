@@ -65,6 +65,7 @@ import com.warmbridge.demo.util.humanizeNetworkError
 import com.warmbridge.demo.util.saveVideoToGallery
 import com.warmbridge.demo.util.shareVideoFile
 import com.warmbridge.demo.util.shareTextLink
+import com.warmbridge.demo.video.PopularVideoPollWorker
 import java.io.File
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -127,6 +128,17 @@ fun VideoPopularScreen(
             humanizeNetworkError(e)?.let { err = it }
             Log.e(TAG, "start failed itemId=$itemId", e)
         }
+    }
+
+    LaunchedEffect(jobId, job?.status) {
+        val id = jobId ?: return@LaunchedEffect
+        val st = job?.status
+        if (st == "done" || st == "failed") {
+            PopularVideoPollWorker.cancel(context, id)
+            return@LaunchedEffect
+        }
+        val t = job?.title?.takeIf { it.isNotBlank() } ?: "通俗视频"
+        PopularVideoPollWorker.schedule(context, id, itemId, t)
     }
 
     LaunchedEffect(jobId) {

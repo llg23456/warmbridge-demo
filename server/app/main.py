@@ -12,12 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.routers import explain, feed, health, image, share, tts, video_popular, video_quick
 from app.services import feed_digest
 from app.services.popular_video_cleanup import purge_disk
+from app.services.popular_video_persist import restore_jobs_on_startup
 
 _scheduler = BackgroundScheduler()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    restore_jobs_on_startup()
     feed_digest.refresh_daily_digest()
     _scheduler.add_job(
         feed_digest.refresh_daily_digest,

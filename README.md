@@ -14,7 +14,7 @@
 | **孩子** | **分享链接**（含备注 / 粘贴口令）写入后端，家长端可见；首页 **图片识梗** |
 | **图片识梗** | 相册选图 → `POST /api/image/explain`（`multipart` 字段 **`file`**）→ OCR 文本再走蓝心解读；**详情页顶部展示本机缓存的原图**（不展示大段 OCR 原文，便于长辈对照画面） |
 | **视频快解析** | 粘贴分享文案或链接 → 服务端抽取信息生成会话条目，详情页解读流程与资讯一致 |
-| **通俗视频生成** | D3 片头 + 文生图轮播 + 口播；og 失败时用 **Bing 图片封面**（免费）；联网 **DDG/Bing**；报告 `reports/{job_id}.md` §0 |
+| **通俗视频生成** | D3 片头 + 文生图轮播 + **按句 TTS/字幕对齐** + 深入口播；封面 **B 站/RAWG/Bing**（动漫类仍易占位）；Job **持久化+完成通知**；报告 `reports/{job_id}.md` §0 |
 | **年轻人话题** | 单独频道列表（与标签热点数据源一致，演示多入口） |
 
 **离线 / 降级约定**
@@ -28,7 +28,7 @@
 
 - **Android**：Kotlin、Jetpack Compose、Material 3（暖色、大字号）、Retrofit、WorkManager（提醒）；HTTP 明文仅用于 Demo 局域网调试
 - **后端**：Python 3.10+、FastAPI、httpx（Chat / OCR）、`websockets`（TTS）、APScheduler（可选定时任务）
-- **数据**：热点为服务端 **Mock**（`server/app/services/feed_mock.py`）；分享、识图、快解析等会话条目为 **内存存储**（**重启服务端即清空**）
+- **数据**：热点 Mock；分享/识图等待会话条目 **内存**（重启清空）；通俗视频 **Job 持久化** `data/popular_videos/jobs/*.json`
 
 ---
 
@@ -223,7 +223,8 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | `VIVO_CHAT_URL` / `VIVO_CHAT_MODEL` | 否 | 蓝心 Chat Completions |
 | `VIVO_OCR_URL` / `VIVO_OCR_BUSINESSID` / `VIVO_OCR_POS` | 识图必填 businessid | 见 `.env.example` §8 |
 | `VIVO_TTS_ENGINEID` / `VIVO_TTS_VCN` / `VIVO_TTS_VAID` | 否 | §14 流式 TTS；签名头等已在代码中按文档处理 |
-| `WEB_SEARCH_ENABLED` | 否 | `true`：分享 enrich + **通俗视频 analyze 前 DDG HTML/Bing 检索** |
+| `WEB_SEARCH_ENABLED` | 否 | `true`：分享 enrich + **通俗视频 analyze 前检索** |
+| `RAWG_API_KEY` | 否 | 游戏类封面（RAWG）；无则降级 Bing |
 | `POPULAR_VIDEO_USE_VIVO_MEDIA` | 否 | 文生图轮播；`false` 仅封面 Ken Burns |
 | `POPULAR_VIDEO_USE_VIVO_INTRO` | 否 | D3 片头；`false` 仅 D2 轮播 |
 | `VIVO_VIDEO_MODEL` | 否 | 默认 `Doubao-Seedance-1.0-pro` |
@@ -246,8 +247,11 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | 配了 Key 解读仍像离线 | 看响应 **`from_llm`**；[联调问题报告.md](联调问题报告.md)（含 explain 缓存） |
 | 识图详情没有原图 | 原图仅 **本机缓存**；清缓存或换机后需重新上传 |
 | 通俗视频 og/正文为空 | 抖音口令 **正常**；看 `reports/{job_id}.md` §0 |
-| 封面像文物/王室 | 「皇室战争」Bing 歧义；已消歧，**请重新生成**；或等文生图配额恢复 |
-| 文生图 code=1003 | vivo 限流 → 仅 **封面 Ken Burns**，口播仍正常；关 `POPULAR_VIDEO_USE_VIVO_MEDIA` 演示 |
+| 封面橙色占位 | 看报告 §0：游戏类查 `RAWG_API_KEY`；**动漫类**（剑风传奇）Bing 常 score=0，口播仍正常 |
+| 玩梗口播偏题 | **重新分享** 完整口令（含全部 `#话题#`）；旧条目 `share_keywords` 不全 |
+| 封面像文物/王室 | 「皇室战争」Bing 歧义；已消歧 + RAWG |
+| 文生图 code=1003 | vivo 限流 → Ken Burns 仍 done；关 `POPULAR_VIDEO_USE_VIVO_MEDIA` 演示 |
+| 通俗视频任务重启丢失 | **Job 已持久化**；`running` 变 `interrupted`，需重新生成；分享列表仍内存 |
 | 协作 / 推送 GitHub | [GitHub上传指南.md](GitHub上传指南.md) |
 
 ---

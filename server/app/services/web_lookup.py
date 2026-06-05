@@ -28,6 +28,15 @@ _WIKI_UA = "WarmBridgeDemo/1.0 (contest demo; httpx; no commercial use)"
 # 常见昵称 → 更易检索本名的词（仅作补充查询，不展示给长辈）
 _NICK_EXTRA_QUERIES: dict[str, str] = {
     "嘎子": "谢孟伟",
+    "牢大": "剑风传奇 漫画",
+    "劳大": "剑风传奇 漫画",
+}
+
+_IMAGE_QUERY_OVERRIDES: dict[str, str] = {
+    "皇室战争": "部落冲突 皇室战争 游戏截图 Supercell",
+    "剑风传奇": "剑风传奇 漫画 格斯 封面",
+    "牢大": "剑风传奇 漫画 暗黑奇幻 插画",
+    "劳大": "剑风传奇 漫画 暗黑奇幻 插画",
 }
 
 # 标题尾部噪声，剥离后更利于检索（如「皇室战争主义」→「皇室战争」）
@@ -57,6 +66,70 @@ _GENERIC_SEARCH_TAGS = frozenset(
         "分享的链接",
         "招生",
         "宣传",
+    }
+)
+
+# 情绪/氛围标签：可作补充，但不宜作为 core_keyword 与检索主词（玩梗视频常带 #绝望# 等）
+_EMOTION_TAGS = frozenset(
+    {
+        "绝望",
+        "开心",
+        "破防",
+        "泪目",
+        "搞笑",
+        "抽象",
+        "治愈",
+        "虐心",
+        "社死",
+        "尴尬",
+        "真实",
+        "火了",
+        "热门",
+        "共鸣",
+        "心疼",
+        "炸裂",
+        "离谱",
+        "整活",
+        "玩梗",
+        "梗",
+        "emo",
+        "泪崩",
+        "破大防",
+        "哈基米",
+    }
+)
+
+# 作品/角色/梗实体提示（优先于标题字面、情绪词）
+_WORK_ENTITY_MARKERS = (
+    "传奇",
+    "漫画",
+    "动画",
+    "动漫",
+    "游戏",
+    "手游",
+    "番",
+    "剧",
+    "电影",
+    "牢大",
+    "劳大",
+    "科比",
+    "嘎子",
+    "皇室战争",
+    "原神",
+)
+
+# 封面检索跳过（真人肖像敏感 / 纯情绪无图）
+_COVER_SKIP_KEYWORDS = frozenset(
+    {
+        "绝望",
+        "牢大",
+        "劳大",
+        "科比",
+        "开心",
+        "破防",
+        "搞笑",
+        "抽象",
+        "emo",
     }
 )
 
@@ -138,9 +211,10 @@ def _prune_substring_keywords(keywords: list[str]) -> list[str]:
                 drop.add(long)
     kept = [k for k in ordered if k not in drop]
     long_kws = [k for k in kept if len(k) >= 4]
+    short_keep = frozenset({"牢大", "劳大", "嘎子"})
     out: list[str] = []
     for kw in kept:
-        if long_kws and len(kw) <= 2:
+        if long_kws and len(kw) <= 2 and kw not in short_keep:
             continue
         if long_kws and kw in ("战争", "主义", "皇室", "大学", "招生"):
             continue
@@ -163,6 +237,23 @@ def primary_search_keyword(
         share_keywords=share_keywords,
     )
     return kws[0] if kws else ""
+
+
+def keywords_for_cover(
+    *,
+    title: str = "",
+    summary: str = "",
+    tag: str = "",
+    share_keywords: str = "",
+) -> list[str]:
+    """封面 Bing 检索词列表（跳过情绪词与真人梗昵称）。"""
+    kws = extract_video_search_keywords(
+        title=title,
+        summary=summary,
+        tag=tag,
+        share_keywords=share_keywords,
+    )
+    return [k for k in kws if k not in _COVER_SKIP_KEYWORDS]
 
 
 def _parse_share_keywords(share_keywords: str) -> list[str]:
@@ -598,6 +689,56 @@ def _filter_search_keywords(keywords: list[str]) -> list[str]:
     return out
 
 
+def _is_low_value_latin_tag(kw: str) -> bool:
+    """纯英文粉丝号类口令标签（如 GOATFANS），联网检索价值低。"""
+    k = (kw or "").strip()
+    if not k or re.search(r"[\u4e00-\u9fff]", k):
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9_]{3,20}", k))
+
+
+def _score_search_keyword(
+    kw: str,
+    *,
+    title: str,
+    from_hashtag: bool,
+    from_summary: bool,
+) -> int:
+    score = 0
+    if from_hashtag:
+        score += 50
+    if from_summary:
+        score += 35
+    if _is_low_value_latin_tag(kw):
+        score -= 55
+    if re.search(r"(才是|多么|怎么样|看看|打开|复制)", kw) and len(kw) > 5:
+        score -= 50
+    if kw in _EMOTION_TAGS:
+        score -= 60
+    if len(kw) >= 3:
+        score += 12
+    if kw == title:
+        score -= 30
+    if any(m in kw for m in _WORK_ENTITY_MARKERS):
+        score += 28
+    if len(kw) <= 2 and kw not in ("牢大", "劳大", "嘎子"):
+        score -= 10
+    return score
+
+
+def is_emotion_tag(kw: str) -> bool:
+    return (kw or "").strip() in _EMOTION_TAGS
+
+
+def pick_display_tag(keywords: list[str]) -> str:
+    """列表展示用标签：优先作品/梗实体，跳过情绪词。"""
+    for kw in keywords:
+        k = (kw or "").strip()
+        if k and k not in _EMOTION_TAGS and k not in _GENERIC_SEARCH_TAGS:
+            return k[:8]
+    return (keywords[0][:8] if keywords else "短视频")
+
+
 def extract_video_search_keywords(
     *,
     title: str = "",
@@ -607,58 +748,106 @@ def extract_video_search_keywords(
     tag: str = "",
     share_keywords: str = "",
 ) -> list[str]:
-    """检索词：口令 #话题# + 标题实体 + 推荐语；去掉子串碎片（如「皇室」「战争」）。"""
+    """
+    检索词优先级：口令 #话题#（作品/梗）> 推荐语实体 > 标题实体。
+    玩梗/抽象视频勿让情绪词（绝望）或标题字面（赴约的鹤）压过剑风传奇/牢大等。
+    """
     title = (title or "").strip()
+    summary = (summary or "").strip()
     from_paste = _parse_share_keywords(share_keywords)
-    entity_kws = extract_title_entities(title) if title else []
+
+    candidates: list[tuple[str, bool, bool]] = []
+    seen: set[str] = set()
+
+    def add(kw: str, *, from_hashtag: bool = False, from_summary: bool = False) -> None:
+        k = (kw or "").strip()
+        if not k or k in seen or k in _GENERIC_SEARCH_TAGS or len(k) < 2:
+            return
+        seen.add(k)
+        candidates.append((k, from_hashtag, from_summary))
+
+    for k in from_paste:
+        add(k, from_hashtag=True)
+
+    for part in re.split(r"[,，、|]", summary):
+        w = part.strip()
+        if 2 <= len(w) <= 12 and w not in _EMOTION_TAGS:
+            add(w, from_summary=True)
+    for m in re.finditer(r"(牢大|劳大|剑风传奇|科比|八度空间|周杰伦|[\u4e00-\u9fff]{3,10})", summary):
+        w = m.group(1)
+        if w not in _EMOTION_TAGS:
+            add(w, from_summary=True)
 
     blob = "\n".join(
         x for x in (title, summary, cover_ocr, page_text[:800]) if (x or "").strip()
     )
-    paste_kws = paste_intel.extract_keywords(blob) if blob else []
+    for k in paste_intel.extract_keywords(blob) if blob else []:
+        add(k, from_hashtag=True)
+
+    for k in extract_title_entities(title) if title else []:
+        add(k)
 
     tag_kw = (tag or "").strip()
-    if tag_kw in _GENERIC_SEARCH_TAGS:
-        tag_kw = ""
+    if tag_kw and tag_kw not in _GENERIC_SEARCH_TAGS:
+        add(tag_kw, from_hashtag=tag_kw in from_paste)
 
-    merged = paste_intel._dedupe_keep_order(from_paste + paste_kws + entity_kws)
-    if tag_kw and tag_kw not in merged:
-        merged.append(tag_kw)
+    if not candidates and title:
+        for k in extract_title_entities(title)[:1]:
+            add(k)
+        if not candidates:
+            add(title[:24])
 
-    filtered = _filter_search_keywords(merged)
-    if not filtered and title:
-        fallback = _normalize_title_for_search(title)
-        for suf in _TITLE_SUFFIX_STRIP:
-            if fallback.endswith(suf) and len(fallback) > len(suf) + 1:
-                fallback = fallback[: -len(suf)]
-        filtered = _filter_search_keywords([fallback] if fallback else [title[:24]])
+    ranked = sorted(
+        candidates,
+        key=lambda x: (
+            -_score_search_keyword(x[0], title=title, from_hashtag=x[1], from_summary=x[2]),
+            -len(x[0]),
+        ),
+    )
 
-    pruned = _prune_substring_keywords(filtered)
-    if not pruned:
-        return []
+    pruned = _prune_substring_keywords([k for k, _, _ in ranked])
+    pruned_set = set(pruned)
+    ordered = [k for k, _, _ in ranked if k in pruned_set]
 
-    out = [pruned[0]]
-    for kw in pruned[1:]:
+    has_summary_entity = any(fs for _, _, fs in ranked)
+    out: list[str] = []
+    for kw in ordered:
         if kw in out:
             continue
-        if out[0] in kw or kw in out[0]:
+        if not out and kw in _EMOTION_TAGS:
+            continue
+        if _is_low_value_latin_tag(kw) and any(
+            not _is_low_value_latin_tag(x) for x, _, _ in ranked
+        ):
+            continue
+        if has_summary_entity and re.search(r"(才是|多么|怎么样|看看|复制|打开)", kw):
             continue
         out.append(kw)
-        break
-    return out[:2]
+        if len(out) >= 3:
+            break
+
+    if not out and ranked:
+        out = [ranked[0][0]]
+    return out[:3]
 
 
 # 易歧义词 → 联网/图片检索 query（勿用裸 "Clash"，易命中 VPN 代理客户端）
 _SEARCH_QUERY_OVERRIDES: dict[str, str] = {
     "皇室战争": "部落冲突 皇室战争 Supercell 卡牌手游",
-}
-
-_IMAGE_QUERY_OVERRIDES: dict[str, str] = {
-    "皇室战争": "部落冲突 皇室战争 游戏截图 Supercell",
+    "剑风传奇": "剑风传奇 漫画 三浦建太郎",
+    "牢大": "剑风传奇 漫画 网络梗",
+    "劳大": "剑风传奇 漫画 网络梗",
+    "周杰伦": "周杰伦 歌手 华语流行 音乐人",
+    "八度空间": "周杰伦 专辑 八度空间 音乐",
 }
 
 _BAIKE_ALIASES: dict[str, list[str]] = {
     "皇室战争": ["部落冲突：皇室战争", "皇室战争", "Clash Royale"],
+    "剑风传奇": ["剑风传奇", "烙印战士", "BERSERK"],
+    "牢大": ["科比·布莱恩特", "科比"],
+    "劳大": ["科比·布莱恩特", "科比"],
+    "周杰伦": ["周杰伦", "周杰倫"],
+    "八度空间": ["八度空间", "八度空間"],
 }
 
 # Bing 误命中：Clash 代理 / VPN（与手游 Clash Royale 无关）
@@ -683,8 +872,32 @@ _PROXY_SERP_BAD = (
 
 _KNOWN_TOPIC_BLURBS: dict[str, str] = {
     "皇室战争": (
-        "（常识）《部落冲突:皇室战争》(Clash Royale) 是 Supercell 出品的卡牌策略手游，"
+        "《部落冲突:皇室战争》(Clash Royale) 是 Supercell 出品的卡牌策略手游，"
         "与《部落冲突》同世界观，玩家用卡牌在竞技场对战。"
+    ),
+    "剑风传奇": (
+        "《剑风传奇》是日本暗黑奇幻漫画，又译《烙印战士》(Berserk)，作者三浦建太郎。"
+        "讲述主角格斯在残酷中世纪幻想世界里抗争的故事，以硬朗画风和深刻剧情著称。"
+        "衍生有 TV 动画、剧场版、游戏《剑风传奇 无双》等；因作者离世，正传未完也是圈内常聊的话题。"
+    ),
+    "牢大": (
+        "「牢大」是年轻人网络上的梗称呼，多指 NBA 传奇球星科比·布莱恩特（Kobe Bryant）。"
+        "科比是美国著名篮球运动员，主要效力洛杉矶湖人队，五次 NBA 总冠军、两届总决赛 MVP、"
+        "18 次全明星，以坚韧好胜的「曼巴精神」闻名。"
+        "近期常和《剑风传奇》等画面做二创混剪；面向长辈解释时语气尊重，勿调侃逝者。"
+    ),
+    "劳大": (
+        "「劳大」与「牢大」同为网上对科比·布莱恩特的梗称（见「牢大」条目）。"
+        "科比是 NBA 名人堂级别得分后卫，湖人队传奇，五次总冠军。"
+    ),
+    "周杰伦": (
+        "周杰伦（Jay Chou）是华语流行歌手、音乐人，代表作有《青花瓷》《晴天》《七里香》《稻香》等，"
+        "在长辈群体里知名度很高。"
+    ),
+    "八度空间": (
+        "《八度空间》是周杰伦 2002 年发行的录音室专辑，代表曲目有《半岛铁盒》《暗号》《回到过去》《最后的战役》等。"
+        "《七里香》是 2004 年同名专辑主打歌，《晴天》出自专辑《叶惠美》——"
+        "口播时不要把《七里香》《晴天》说成《八度空间》里的歌。"
     ),
 }
 
@@ -709,6 +922,17 @@ _BING_IMAGE_GOOD = (
     "截图",
     "game",
     "screenshot",
+    "猫",
+    "狗",
+    "宠物",
+    "pet",
+    "cat",
+    "dog",
+    "kitten",
+    "puppy",
+    "萌宠",
+    "猫咪",
+    "小狗",
 )
 
 _BING_IMAGE_BAD = (
@@ -752,6 +976,20 @@ def _score_web_serp_item(title: str, snippet: str, keyword: str) -> int:
             score -= 22
     if keyword and keyword in blob:
         score += 3
+    if keyword == "周杰伦":
+        for g in ("歌手", "音乐", "专辑", "Jay", "华语"):
+            if g in blob or g.lower() in blob.lower():
+                score += 15
+        for b in ("周朝", "甲骨文", "汉字", "周易", "西周"):
+            if b in blob:
+                score -= 40
+    if keyword == "八度空间":
+        for g in ("周杰伦", "专辑", "半岛铁盒", "暗号", "音乐"):
+            if g in blob:
+                score += 15
+        for b in ("汉字", "拼音", "八家户", "说文"):
+            if b in blob:
+                score -= 40
     if "皇室" in blob and not any(x in blob for x in ("部落", "Royale", "游戏", "手游", "Supercell", "皇室战争")):
         score -= 30
     low = blob.lower()
@@ -762,10 +1000,61 @@ def _score_web_serp_item(title: str, snippet: str, keyword: str) -> int:
 
 
 def _web_blurb_relevant(keyword: str, text: str) -> bool:
-    """检索摘要是否与关键词主题一致（防「皇室战争」→ Clash 代理）。"""
+    """检索摘要是否与关键词主题一致（防「皇室战争」→ Clash 代理、「剑风传奇」→ 古剑）。"""
     if not (text or "").strip():
         return False
     kw = keyword.strip()
+    if kw == "剑风传奇":
+        good = (
+            "剑风传奇",
+            "烙印战士",
+            "Berserk",
+            "三浦",
+            "格斯",
+            "漫画",
+            "动漫",
+            "奇幻",
+        )
+        bad = (
+            "古名剑",
+            "龙泉宝剑",
+            "十大名剑",
+            "越王",
+            "欧冶子",
+            "湛卢",
+            "百兵之君",
+            "刀剑网",
+        )
+        if any(g in text for g in good):
+            return True
+        if any(b in text for b in bad):
+            return False
+        return False
+    if kw in ("牢大", "劳大"):
+        good = ("科比", "Kobe", "NBA", "湖人", "篮球", "曼巴", "布莱恩特")
+        if any(g in text for g in good):
+            return True
+        if "古名剑" in text or "龙泉宝剑" in text:
+            return False
+        return False
+    if kw == "周杰伦":
+        good = ("周杰伦", "Jay", "歌手", "音乐", "专辑", "华语", "流行", "艺人", "创作", "演唱")
+        bad = ("周朝", "甲骨文", "汉字", "周易", "周武王", "西周", "东周", "字本义", "简体字", "仓颉")
+        if any(g in text for g in good):
+            return True
+        if any(b in text for b in bad):
+            return False
+        return False
+    if kw == "八度空间":
+        good = ("周杰伦", "专辑", "音乐", "唱片", "歌曲", "半岛铁盒", "暗号", "回到过去", "录音室")
+        bad = ("汉字", "拼音", "八家户", "管委会", "书法", "说文", "字拼音", "独体字", "仓颉")
+        if any(g in text for g in good):
+            return True
+        if any(b in text for b in bad):
+            return False
+        return False
+    if _is_low_value_latin_tag(kw):
+        return False
     if kw != "皇室战争":
         return True
     game_signals = ("皇室战争", "部落冲突", "Supercell", "Clash Royale", "卡牌", "手游", "塔防")
@@ -826,15 +1115,47 @@ def _disambiguate_web_query(keyword: str) -> str:
     return f"{kw} 简介"
 
 
+def _is_pet_keyword(keyword: str) -> bool:
+    kw = (keyword or "").strip()
+    return any(x in kw for x in ("猫", "狗", "宠", "pet", "哈基米", "萌宠"))
+
+
 def _bing_image_search_query(keyword: str) -> str:
     kw = keyword.strip()
     if not kw:
         return kw
     if kw in _IMAGE_QUERY_OVERRIDES:
         return _IMAGE_QUERY_OVERRIDES[kw]
+    if _is_pet_keyword(kw):
+        return "可爱猫咪 宠物 高清"
     if "战争" in kw and len(kw) <= 8:
         return f"{kw} 手机游戏 截图"
     return f"{kw} 高清"
+
+
+def _bing_image_search_queries(keyword: str) -> list[str]:
+    """同一关键词多组查询，提高 Bing 封面命中率。"""
+    kw = (keyword or "").strip()
+    if not kw:
+        return []
+    primary = _bing_image_search_query(kw)
+    queries = [primary]
+    if _is_pet_keyword(kw):
+        queries.extend(["小猫 萌宠 照片", f"{kw} 猫咪", "可爱宠物猫"])
+    elif any(x in kw for x in ("游戏", "手游")):
+        queries.append(f"{kw} 游戏截图")
+    elif len(kw) > 10:
+        short = kw[:8].strip()
+        if short and short != kw:
+            queries.append(f"{short} 高清")
+    seen: set[str] = set()
+    out: list[str] = []
+    for q in queries:
+        q = q.strip()
+        if q and q not in seen:
+            seen.add(q)
+            out.append(q)
+    return out
 
 
 def _score_bing_image_candidate(alt: str, keyword: str) -> int:
@@ -911,12 +1232,38 @@ def _extract_bing_image_murls(html: str, *, max_items: int = 8) -> list[str]:
     return urls
 
 
-async def bing_image_search_murl(keyword: str, *, timeout: float = 12.0) -> str:
-    """Bing 图片搜索：按 alt 相关性选图（免费封面，不耗 vivo 文生图额度）。"""
+@dataclass
+class BingImageResult:
+    url: str = ""
+    keyword: str = ""
+    query_used: str = ""
+    best_score: int = 0
+    candidate_count: int = 0
+    skip_reason: str = ""
+    detail: str = ""
+
+
+def _bing_image_accept_score(score: int, alt: str, keyword: str) -> bool:
+    """游戏/宠物类放宽阈值，避免「有图但 alt 不含关键词」被误杀。"""
+    alt_l = (alt or "").lower()
+    if score >= 8:
+        return True
+    if any(x in alt_l or x in (alt or "") for x in ("clash", "royale", "部落", "游戏", "手游", "supercell")):
+        return score >= 0
+    if _is_pet_keyword(keyword) or any(
+        x in alt_l or x in (alt or "") for x in ("猫", "狗", "宠", "pet", "cat", "dog", "kitten")
+    ):
+        return score >= 0
+    return score >= 4
+
+
+async def _bing_image_search_one_query(
+    search_q: str,
+    keyword: str,
+    *,
+    timeout: float = 12.0,
+) -> BingImageResult:
     kw = keyword.strip()
-    if not kw:
-        return ""
-    search_q = _bing_image_search_query(kw)
     text = ""
     status = 0
     try:
@@ -938,7 +1285,7 @@ async def bing_image_search_murl(keyword: str, *, timeout: float = 12.0) -> str:
             search_q,
             e,
         )
-        return ""
+        return BingImageResult(keyword=kw, query_used=search_q, skip_reason=f"请求异常：{e}")
 
     _log.info(
         "web_lookup: engine=bing_images query=%s status=%s len=%s",
@@ -947,21 +1294,23 @@ async def bing_image_search_murl(keyword: str, *, timeout: float = 12.0) -> str:
         len(text),
     )
     if status >= 400 or _is_blocked_search_html(text):
-        _log.info("web_lookup: engine=bing_images query=%s extract_len=0", search_q)
-        return ""
+        return BingImageResult(
+            keyword=kw,
+            query_used=search_q,
+            skip_reason="Bing 返回拦截页或 HTTP 错误",
+        )
 
     candidates = _parse_bing_image_candidates(text)
     if not candidates:
-        _log.info("web_lookup: engine=bing_images query=%s murl_count=0", search_q)
-        return ""
+        return BingImageResult(
+            keyword=kw,
+            query_used=search_q,
+            skip_reason="未解析到图片候选",
+        )
 
     scored = [(u, alt, _score_bing_image_candidate(alt, kw)) for u, alt in candidates]
     scored.sort(key=lambda x: (-x[2], -len(x[1])))
     best_url, best_alt, best_score = scored[0]
-    has_game_signal = any(
-        x in (best_alt or "").lower() or x in (best_alt or "")
-        for x in ("clash", "royale", "部落", "游戏", "手游", "supercell")
-    )
     _log.info(
         "web_lookup: engine=bing_images query=%s picked score=%s alt=%s url=%s",
         search_q,
@@ -969,14 +1318,43 @@ async def bing_image_search_murl(keyword: str, *, timeout: float = 12.0) -> str:
         (best_alt or "")[:80],
         best_url[:120],
     )
-    if best_score < 8 and not has_game_signal:
-        _log.info(
-            "web_lookup: engine=bing_images query=%s skip weak cover score=%s (use placeholder)",
-            search_q,
-            best_score,
+    if not _bing_image_accept_score(best_score, best_alt, kw):
+        return BingImageResult(
+            keyword=kw,
+            query_used=search_q,
+            best_score=best_score,
+            candidate_count=len(candidates),
+            skip_reason=f"最佳候选相关性偏低 score={best_score}",
         )
-        return ""
-    return best_url
+    return BingImageResult(
+        url=best_url,
+        keyword=kw,
+        query_used=search_q,
+        best_score=best_score,
+        candidate_count=len(candidates),
+        detail=f"Bing 查询「{search_q}」score={best_score}",
+    )
+
+
+async def bing_image_search(keyword: str, *, timeout: float = 12.0) -> BingImageResult:
+    """Bing 图片搜索（多查询重试），返回诊断信息。"""
+    kw = keyword.strip()
+    if not kw:
+        return BingImageResult(skip_reason="关键词为空")
+
+    queries = _bing_image_search_queries(kw)
+    last = BingImageResult(keyword=kw, skip_reason="所有 Bing 查询均未命中")
+    for search_q in queries:
+        result = await _bing_image_search_one_query(search_q, kw, timeout=timeout)
+        if result.url:
+            return result
+        last = result
+    return last
+
+
+async def bing_image_search_murl(keyword: str, *, timeout: float = 12.0) -> str:
+    """Bing 图片搜索：按 alt 相关性选图（免费封面，不耗 vivo 文生图额度）。"""
+    return (await bing_image_search(keyword, timeout=timeout)).url
 
 
 async def google_news_rss_snippets(query: str, *, timeout: float = 12.0, max_items: int = 4) -> str:
@@ -1052,11 +1430,50 @@ async def baidu_baike_summary(keyword: str, *, timeout: float = 8.0) -> str:
     return ""
 
 
+def builtin_entity_blurb(keyword: str) -> str:
+    k = (keyword or "").strip()
+    if not k:
+        return ""
+    if k in _KNOWN_TOPIC_BLURBS:
+        return _KNOWN_TOPIC_BLURBS[k]
+    return ""
+
+
+def build_builtin_entity_context(*, share_keywords: str = "", summary: str = "", title: str = "") -> str:
+    """为 analyze 注入可靠背景常识（联网偏题时口播仍可深入展开）。"""
+    kws = extract_video_search_keywords(
+        title=title,
+        summary=summary,
+        share_keywords=share_keywords,
+    )
+    blob = f"{share_keywords} {summary}"
+    for alias in ("牢大", "劳大", "科比"):
+        if alias in blob and alias not in kws:
+            kws.append(alias)
+
+    parts: list[str] = []
+    seen: set[str] = set()
+    for kw in kws:
+        if kw in seen:
+            continue
+        blurb = builtin_entity_blurb(kw)
+        if blurb:
+            seen.add(kw)
+            parts.append(f"· 【{kw}】{blurb}")
+    return "\n".join(parts)
+
+
 async def lookup_fresh_blurb(keyword: str) -> tuple[str, str]:
     """返回 (摘要文本, 状态说明)。歧义词优先百科，再 DDG/Bing（带 SERP 过滤）。"""
     kw = keyword.strip()
     if not kw:
         return "", "空关键词"
+
+    if kw in _KNOWN_TOPIC_BLURBS:
+        for alias in _BAIKE_ALIASES.get(kw, [kw]):
+            baike = await baidu_baike_summary(alias, timeout=8.0)
+            if baike and len(baike) > 40 and _web_blurb_relevant(kw, baike):
+                return baike, f"百度百科有结果({alias})"
 
     if kw in _SEARCH_QUERY_OVERRIDES or kw in _IMAGE_QUERY_OVERRIDES:
         for alias in _BAIKE_ALIASES.get(kw, [kw]):
@@ -1101,7 +1518,7 @@ async def lookup_fresh_blurb(keyword: str) -> tuple[str, str]:
     if fallback and _web_blurb_relevant(kw, fallback):
         return fallback, "兜底检索有结果"
 
-    known = _KNOWN_TOPIC_BLURBS.get(kw, "").strip()
+    known = builtin_entity_blurb(kw)
     if known:
         return known, "内置常识摘要(检索偏题已丢弃)"
     return "", "DDG HTML/Bing/维基/百科均无命中"
@@ -1139,7 +1556,7 @@ async def build_fresh_video_web_context(
     )
     if not keywords and title.strip():
         keywords = extract_title_entities(title.strip())[:1]
-    result.keywords_tried = keywords[:2]
+    result.keywords_tried = keywords[:3]
 
     if not keywords:
         result.text = stored[:4500]
@@ -1147,7 +1564,7 @@ async def build_fresh_video_web_context(
         return result
 
     fresh_parts: list[str] = []
-    for kw in keywords[:2]:
+    for kw in keywords[:3]:
         blurb, status = await lookup_fresh_blurb(kw)
         result.attempt_log.append(f"「{kw}」→ {status}")
         if not blurb:

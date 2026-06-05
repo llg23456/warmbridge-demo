@@ -22,7 +22,7 @@ import httpx
 
 from app.schemas import FeedItem
 
-from app.services import link_preview, popular_video_store, store, video_platform, web_lookup
+from app.services import cover_resolver, link_preview, popular_video_store, store, video_platform, web_lookup
 
 from app.services.popular_video_analyze import VideoAnalyzeResult, analyze_video_content
 
@@ -52,7 +52,8 @@ from app.services.video_slideshow import (
 
 )
 
-from app.services.vivo_tts import synthesize_wav
+from app.services.video_subtitles import write_srt_from_segments
+from app.services.vivo_tts import synthesize_wav_by_sentences
 
 
 
@@ -268,11 +269,37 @@ async def _download_cover(url: str, dest: Path, *, referer: str = "") -> bool:
 
 
 
-async def _synthesize_wav_to(narration: str, wav_path: Path) -> None:
+async def _synthesize_wav_to(narration: str, wav_path: Path, *, work: Path) -> None:
 
-    wav_bytes = await synthesize_wav(narration)
+    synthesis = await synthesize_wav_by_sentences(narration)
 
-    wav_path.write_bytes(wav_bytes)
+    wav_path.write_bytes(synthesis.wav_bytes)
+
+    if synthesis.segments:
+
+        write_srt_from_segments(synthesis.segments, work / "narration.srt")
+
+        (work / "tts_segments.json").write_text(
+
+            json.dumps(
+
+                [
+
+                    {"text": s.text, "start": s.start_sec, "end": s.end_sec}
+
+                    for s in synthesis.segments
+
+                ],
+
+                ensure_ascii=False,
+
+                indent=2,
+
+            ),
+
+            encoding="utf-8",
+
+        )
 
 
 
@@ -348,7 +375,9 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
 
             return
 
-        job.title = it.title[:80] or "通俗视频解读"
+        from app.services.paste_intel import sanitize_display_title
+
+        job.title = sanitize_display_title(it.title)[:80] or "通俗视频解读"
 
         popular_video_store.put(job)
 
@@ -380,25 +409,29 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
             if ok_cover:
                 cover_source = "og"
 
+        cover_resolve_detail = ""
         if not ok_cover:
-            bing_image_keyword = web_lookup.primary_search_keyword(
+            resolved = await cover_resolver.resolve_cover(
+                page_url=(it.url or "").strip(),
                 title=it.title,
                 summary=it.summary,
                 tag=it.tag or "",
                 share_keywords=it.share_keywords or "",
             )
-            if bing_image_keyword:
-                murl = await web_lookup.bing_image_search_murl(bing_image_keyword)
-                if murl:
-                    ok_cover = await _download_cover(murl, cover_raw, referer="https://cn.bing.com/")
-                    if ok_cover:
-                        cover_source = "bing_image"
-                        cover_url = murl
-                        _log.info(
-                            "WbVideoGen job=%s cover from bing_images kw=%s",
-                            job_id,
-                            bing_image_keyword,
-                        )
+            bing_image_keyword = resolved.keyword
+            cover_resolve_detail = resolved.detail
+            if resolved.url:
+                referer = "https://www.bilibili.com/" if resolved.source == "bilibili_api" else "https://cn.bing.com/"
+                ok_cover = await _download_cover(resolved.url, cover_raw, referer=referer)
+                if ok_cover:
+                    cover_source = resolved.source or "bing_image"
+                    cover_url = resolved.url
+                    _log.info(
+                        "WbVideoGen job=%s cover from %s kw=%s",
+                        job_id,
+                        cover_source,
+                        bing_image_keyword,
+                    )
 
         if ok_cover:
             if cover_source != "bing_image":
@@ -429,6 +462,7 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
             used_placeholder_cover=used_placeholder,
             cover_source=cover_source,
             bing_image_keyword=bing_image_keyword,
+            cover_resolve_detail=cover_resolve_detail,
             skip_page_material=skip_page,
             page_description=(it.page_description or ctx.description or "").strip(),
             page_text=page_text,
@@ -505,7 +539,7 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
                     safe_topic=analyze.core_keyword or (it.tag or ""),
                 ),
 
-                _synthesize_wav_to(analyze.narration, wav_path),
+                _synthesize_wav_to(analyze.narration, wav_path, work=work),
 
             )
 
@@ -517,6 +551,7 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
                 first_frame_cdn_url=first_cdn_url,
                 video_prompt=analyze.video_prompt,
                 job_id=job_id,
+                safe_topic=analyze.core_keyword or (it.tag or ""),
             )
 
         except Exception as e:

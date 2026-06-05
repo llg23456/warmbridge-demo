@@ -165,6 +165,7 @@ fun MineScreen(
                     val statusText = when (job.status) {
                         "done" -> stringResource(R.string.mine_popular_status_done)
                         "failed" -> stringResource(R.string.mine_popular_status_failed)
+                        "interrupted" -> stringResource(R.string.mine_popular_status_interrupted)
                         else -> stringResource(R.string.mine_popular_status_running, job.progress)
                     }
                     MineRow(

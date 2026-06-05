@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -10,6 +11,7 @@ from typing import Any
 import httpx
 
 from app.config import settings
+from app.services.vivo_llm import apply_thinking_params
 
 _DISCLAIMER_TAIL = "具体细节还请去看原视频，咱们一起点开慢慢看。"
 
@@ -33,20 +35,26 @@ ANALYZE_SYSTEM = """你是「暖桥」家庭助手的视频口播策划，读者
 
 【口播 narration 硬性要求】
 1) 纯中文口语，温柔耐心，**像 2024–2026 年家人在微信里讲件事**：短句、有温度；少用「据悉」「近年来」「随着…的发展」「众所周知」等老播音/公文腔。
-2) **单点深入**：选定 1 个 core_keyword，约 **60% 篇幅**讲它的背景、特点、为什么最近值得聊；**若【联网检索摘要】含「近期资讯」「最新」类内容，优先融入**（可说「最近网上挺火的…」「刚看到的消息里提到…」），勿编造具体日期/采访原话。
-   **若【联网检索摘要】为（无）或极短**：允许基于 core_keyword / 标题实体做**常识性**适度展开（如知名游戏、学校、人物的公开常识），可用「一般来说」「大家常把它当作…」；**禁止**编造具体日期、数据、采访原话或未证实的「最新事件」。
-3) 约 **20%** 说明「这条分享视频本身在讲什么」。
-4) 约 **20%** 和孩子/家庭的关联（为啥孩子转给您、您可以怎么理解）。
-5) **禁止**平均用力、念标题、像新闻联播稿；无材料支撑的细节用「网上常见说法是」「大概」。
-6) narration **最后一句**必须含「原视频」并引导点开看（如：「具体细节还请去看原视频，咱们一起点开慢慢看。」）。
+2) **务必讲透、有信息量**：面向长辈要把「是什么、为什么火」说清楚，**禁止**空泛敷衍（如「不用纠结」「网上梗看看就行」「不懂也没关系」就带过）。
+   - **单标签视频**：约 **55%** 展开 core_keyword 的背景、特点、衍生（游戏/动漫/作品/人物公开经历等）。
+   - **多标签玩梗视频**（如同时有「剑风传奇」「牢大」）：约 **40%** 讲主作品（《剑风传奇》是哪类动漫、讲什么、有哪些动画游戏衍生），约 **30%** 讲关联梗人物（「牢大」即科比·布莱恩特，NBA 传奇、主要荣誉与「曼巴精神」，语气尊重），约 **15%** 这条视频在玩什么梗，约 **15%** 和孩子分享的关联。
+   - **优先采用【背景常识】与可靠检索**；检索偏题时仍以【背景常识】展开；可用「一般来说」「大家常把它当作…」；**禁止**编造具体日期、采访原话或未证实事件。
+   - **音乐/专辑事实**：须以【背景常识】为准；**禁止**把《七里香》《晴天》说成《八度空间》专辑曲目（七里香为同名专辑主打歌，晴天出自《叶惠美》）。无可靠曲目信息时只介绍歌手/专辑概况，**勿乱点歌名**。
+3) narration **最后一句**必须含「原视频」并引导点开看。
+4) narration **全段约 240～320 字**（含最后引导句）；多实体玩梗视频**勿短于 220 字**；普通单主题**勿短于 180 字**。
 
 【材料优先级】
 - 抖音/B 站口令页常无 og/正文（标注「不适用」时属正常）。
-- **标题 + 孩子推荐语/口令词** 决定主题；联网摘要若与标题明显无关（如标题是「皇室战争」游戏、摘要是 Clash 代理/VPN），**以标题为准，忽略偏题摘要**。
-- 有效材料：口令关键词、推荐语、标题、**相关的**联网检索摘要。
+- **玩梗/抽象/二创视频**：**分享口令 #话题# 标签优先于标题字面**。标题可能是作者名、比喻或整活文案（如「赴约的鹤」），**勿按标题臆测成动物/自然纪录片**。
+- **优先选具体作品/角色/梗实体**作 core_keyword（如「剑风传奇」「牢大」），**勿选纯情绪标签**（如「绝望」「破防」「搞笑」）作核心。
+- 「牢大/劳大」= 网上对 **科比·布莱恩特** 的梗称；**须**用长辈能听懂的口语介绍他是谁、打什么球、拿过什么荣誉（公开常识），并说明和本条视频/《剑风传奇》梗素材的关系；语气尊重，**禁止**调侃逝者、禁止当成鹤/鸟类。
+- 联网摘要若与标签明显无关，**以标签+推荐语为准**；若标题是「皇室战争」游戏、摘要是 Clash 代理/VPN，**以标题/标签为准，忽略偏题摘要**。
+- 搜「周杰伦」却返回汉字「周」、搜「八度空间」却返回字典/地名释义时，**整段忽略联网摘要**，只用【背景常识】与推荐语。
+- 有效材料：口令关键词（全部）、推荐语、标题（次要）、**相关的**联网检索摘要。
 
 【core_keyword 硬性】
-- 必须与【视频标题】【孩子推荐语】同一实体；禁止把「皇室战争」手游说成 Clash 代理/VPN/翻墙软件。
+- 须与【分享口令关键词】【孩子推荐语】同一主题实体；**有「剑风传奇」「牢大」等标签时不得输出标题「赴约的鹤」作 core_keyword**。
+- 禁止把「皇室战争」手游说成 Clash 代理/VPN/翻墙软件。
 
 【video_prompt / image_prompts】
 - 全英文；围绕 core_keyword；写实摄影或纪录片风格；image_prompts 恰好 3 条，角度不同（场景/物件/细节 B-roll）。
@@ -63,9 +71,17 @@ class VideoAnalyzeResult:
     from_llm: bool = False
 
 
-def _align_core_keyword(core: str, *, title: str, summary: str) -> str:
-    """修正 LLM 被偏题检索带歪的 core_keyword（如皇室战争 → Clash客户端）。"""
-    blob = f"{title} {summary}"
+def _align_core_keyword(
+    core: str,
+    *,
+    title: str,
+    summary: str,
+    share_keywords: str = "",
+) -> str:
+    """修正 LLM 被偏题检索/标题字面带歪的 core_keyword。"""
+    from app.services import web_lookup
+
+    blob = f"{title} {summary} {share_keywords}"
     c = (core or "").strip()
     if "皇室战争" in blob:
         bad = ("Clash客户端", "Clash客户端", "代理", "VPN", "翻墙", "订阅")
@@ -73,7 +89,20 @@ def _align_core_keyword(core: str, *, title: str, summary: str) -> str:
             return "皇室战争"
         if c and "皇室" not in c and "Royale" not in c and "部落" not in c:
             return "皇室战争"
-    return c or title[:12]
+
+    preferred = web_lookup.primary_search_keyword(
+        title=title,
+        summary=summary,
+        share_keywords=share_keywords,
+    )
+    if preferred:
+        titleish = {title.strip(), title.strip()[:12]}
+        emotion_or_title = web_lookup.is_emotion_tag(c) or c in titleish
+        if emotion_or_title and not web_lookup.is_emotion_tag(preferred):
+            return preferred[:12]
+        if c in titleish and preferred != c and len(preferred) >= 3:
+            return preferred[:12]
+    return c or preferred[:12] or title[:12]
 
 
 def normalize_narration_perspective(narration: str) -> str:
@@ -113,7 +142,10 @@ def _fallback_analyze(
     cover_ocr: str,
     web_context: str,
     tag: str,
+    share_keywords: str = "",
 ) -> VideoAnalyzeResult:
+    from app.services import web_lookup
+
     core = (tag or "").strip()
     if not core or core in ("短视频", "生活"):
         for blob in (cover_ocr, title, summary, page_description):
@@ -126,8 +158,15 @@ def _fallback_analyze(
 
     parts: list[str] = []
     parts.append(f"孩子给您分享的这个视频呀，标题说的是「{title}」。")
+    entity_ctx = web_lookup.build_builtin_entity_context(
+        share_keywords=share_keywords,
+        summary=summary,
+        title=title,
+    )
+    if entity_ctx:
+        parts.append(entity_ctx[:420])
     hint = (page_description or summary or page_text or "").strip()
-    if hint:
+    if hint and not entity_ctx:
         parts.append(f"大概是在讲：{hint[:200]}。")
     if web_context.strip():
         chunk = web_context.strip().split("\n\n")[0][:280]
@@ -189,6 +228,34 @@ def _normalize_image_prompts(raw: Any, core: str) -> list[str]:
     return out[:3]
 
 
+def _narration_music_album_error(narration: str) -> bool:
+    """检测口播是否把名曲错误归入《八度空间》专辑。"""
+    t = (narration or "").strip()
+    if "八度空间" not in t:
+        return False
+    for song in ("七里香", "晴天"):
+        if song not in t:
+            continue
+        if re.search(
+            rf"(八度空间[^。]{{0,48}}{song}|《八度空间》[^。]{{0,40}}{song}|"
+            rf"{song}[^。]{{0,32}}八度空间|里面[^。]{{0,12}}《?{song})",
+            t,
+        ):
+            return True
+    return False
+
+
+def _narration_min_chars(share_keywords: str = "", summary: str = "") -> int:
+    from app.services import web_lookup
+
+    blob = f"{share_keywords} {summary}"
+    tags = [k.strip() for k in re.split(r"[,，、|]", share_keywords or "") if k.strip()]
+    entity_tags = [t for t in tags if not web_lookup.is_emotion_tag(t)]
+    if len(entity_tags) >= 2 or ("牢大" in blob or "劳大" in blob or "科比" in blob):
+        return 220
+    return 180
+
+
 def build_analyze_user_content(
     *,
     title: str,
@@ -218,23 +285,45 @@ def build_analyze_user_content(
     ocr_st, ocr_note = prep.ocr_status()
     web_st, web_note = wd.status()
 
-    kw_line = (share_keywords or "").strip() or (tag if tag and tag not in ("短视频", "生活", "数码") else "") or "（无）"
+    from app.services import web_lookup
+    from app.services.paste_intel import sanitize_display_title
 
-    return "\n".join(
+    title = sanitize_display_title(title) or (title or "").strip()
+    kw_line = (share_keywords or "").strip() or (tag if tag and tag not in ("短视频", "生活", "数码") else "") or "（无）"
+    if (share_keywords or "").strip() and "，" in share_keywords:
+        kw_line = share_keywords.strip()
+
+    entity_ctx = web_lookup.build_builtin_entity_context(
+        share_keywords=share_keywords,
+        summary=summary,
+        title=title,
+    )
+    min_chars = _narration_min_chars(share_keywords, summary)
+
+    lines = [
+        f"【视频标题】{title}",
+        f"【来源】{source}",
+        f"【分享口令关键词】{kw_line}",
+        f"【孩子推荐语/列表摘要】{summary or '（无）'}",
+        f"【兴趣标签】{tag or '（无）'}（仅供分类；检索已跳过「短视频」等泛标签）",
+        f"【页面简介 og】[{og_st.split()[0]} {og_note}]\n{(page_description or '（无）')[:1200]}",
+        f"【页面正文摘录】[{pt_st.split()[0]} {pt_note}]\n{(page_text or '（无）')[:2000]}",
+        f"【封面 OCR 文字】[{ocr_st.split()[0]} {ocr_note}]\n{(cover_ocr_text or '（无）')[:800]}",
+    ]
+    if entity_ctx:
+        lines.append(f"【背景常识（口播须深入展开，优先采用）】\n{entity_ctx}")
+    lines.extend(
         [
-            f"【视频标题】{title}",
-            f"【来源】{source}",
-            f"【分享口令关键词】{kw_line}",
-            f"【孩子推荐语/列表摘要】{summary or '（无）'}",
-            f"【兴趣标签】{tag or '（无）'}（仅供分类；检索已跳过「短视频」等泛标签）",
-            f"【页面简介 og】[{og_st.split()[0]} {og_note}]\n{(page_description or '（无）')[:1200]}",
-            f"【页面正文摘录】[{pt_st.split()[0]} {pt_note}]\n{(page_text or '（无）')[:2000]}",
-            f"【封面 OCR 文字】[{ocr_st.split()[0]} {ocr_note}]\n{(cover_ocr_text or '（无）')[:800]}",
             f"【联网检索摘要】[{web_st} {web_note}]\n{(web_context or '（无）')[:3800]}",
-            "请输出 JSON。口播**面向长辈用「您」**；**core_keyword 须与标题/推荐语一致**；"
-            "联网摘要若与标题无关则忽略；有联网资讯时融入；勿写成旧百科介绍。",
+            "请输出 JSON。口播**面向长辈用「您」**；"
+            "**玩梗视频以标签为内核，须讲清作品/人物背景，勿空泛敷衍**；"
+            "有《剑风传奇》须介绍漫画动漫与衍生；有牢大/劳大须介绍科比与篮球成就；"
+            "联网摘要若明显偏题（如古剑/观鸟/汉字释义）则忽略，以【背景常识】为准；"
+            "音乐类勿把《七里香》《晴天》说成《八度空间》里的歌；"
+            f"**narration 约 240～320 字，勿短于 {min_chars} 字**。",
         ]
     )
+    return "\n".join(lines)
 
 
 async def analyze_video_content(
@@ -252,6 +341,9 @@ async def analyze_video_content(
     web_diag: Any = None,
 ) -> VideoAnalyzeResult:
     """一次 LLM 调用；与 /api/explain 缓存无关。"""
+    from app.services.paste_intel import sanitize_display_title
+
+    title = sanitize_display_title(title) or (title or "").strip()
     fb_kwargs = dict(
         title=title,
         summary=summary,
@@ -260,6 +352,7 @@ async def analyze_video_content(
         cover_ocr=cover_ocr_text,
         web_context=web_context,
         tag=tag,
+        share_keywords=share_keywords,
     )
     key = (settings.vivo_app_key or "").strip()
     if not key:
@@ -288,6 +381,7 @@ async def analyze_video_content(
         "max_tokens": 2048,
         "stream": False,
     }
+    apply_thinking_params(payload, settings.vivo_chat_model, enabled=False)
     try:
         async with httpx.AsyncClient(timeout=120.0) as client:
             r = await client.post(
@@ -309,15 +403,19 @@ async def analyze_video_content(
             str(obj.get("core_keyword", "")).strip()[:24],
             title=title,
             summary=summary,
+            share_keywords=share_keywords,
         )
         narration = normalize_narration_perspective(
             _ensure_disclaimer(str(obj.get("narration", "")).strip())
         )
         if "皇室战争" in f"{title} {summary}" and "代理" in narration and "手游" not in narration:
             return _fallback_analyze(**fb_kwargs)
-        if len(narration) < 80:
+        if _narration_music_album_error(narration):
             return _fallback_analyze(**fb_kwargs)
-        if len(narration) > 560:
+        min_chars = _narration_min_chars(share_keywords, summary)
+        if len(narration) < min_chars:
+            return _fallback_analyze(**fb_kwargs)
+        if len(narration) > 680:
             narration = narration[:540].rstrip() + f"……{_DISCLAIMER_TAIL}"
         return VideoAnalyzeResult(
             core_keyword=core or tag or title[:12],

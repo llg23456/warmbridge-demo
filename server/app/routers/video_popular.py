@@ -107,6 +107,7 @@ def status(job_id: str, request: Request):
         "tts": "正在合成语音…",
         "merge": "正在合成轮播画面与语音…",
         "done": "完成",
+        "interrupted": "服务重启，请重新生成",
     }
     return PopularVideoStatusResponse(
         job=_job_dto(j, request),

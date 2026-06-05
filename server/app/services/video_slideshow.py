@@ -181,10 +181,13 @@ def _mux_video_audio(
     duration = wav_duration_seconds(wav_path)
     srt_path: Path | None = None
     sub_vf: str | None = None
-    if (narration or "").strip() and work is not None:
+    if work is not None:
         srt_path = work / "narration.srt"
-        write_srt(narration.strip(), duration, srt_path)
-        sub_vf = _subtitle_vf(srt_path)
+        if not srt_path.is_file() or srt_path.stat().st_size < 4:
+            if (narration or "").strip():
+                write_srt(narration.strip(), duration, srt_path)
+        if srt_path.is_file() and srt_path.stat().st_size >= 4:
+            sub_vf = _subtitle_vf(srt_path)
 
     if sub_vf:
         _log.info("WbVideoGen merge burn subtitles srt=%s", srt_path.name if srt_path else "")

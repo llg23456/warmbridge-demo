@@ -1,11 +1,14 @@
-"""通俗视频生成任务（内存；重启清空）。"""
+"""通俗视频生成任务（内存 + 磁盘 jobs/*.json）。"""
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Optional
+
+_log = logging.getLogger(__name__)
 
 _jobs: dict[str, "PopularVideoJob"] = {}
 
@@ -34,9 +37,16 @@ def new_job_id() -> str:
     return f"pv-{uuid.uuid4().hex[:12]}"
 
 
-def put(job: PopularVideoJob) -> None:
+def put(job: PopularVideoJob, *, persist: bool = True) -> None:
     job.updated_at = time.time()
     _jobs[job.job_id] = job
+    if persist:
+        try:
+            from app.services.popular_video_persist import save_job
+
+            save_job(job)
+        except Exception as e:
+            _log.warning("WbVideoGen persist save fail job=%s: %s", job.job_id, e)
 
 
 def get(job_id: str) -> Optional[PopularVideoJob]:
@@ -57,6 +67,12 @@ def find_running_for_item(item_id: str) -> Optional[PopularVideoJob]:
 
 def remove(job_id: str) -> None:
     _jobs.pop(job_id, None)
+    try:
+        from app.services.popular_video_persist import delete_job
+
+        delete_job(job_id)
+    except Exception as e:
+        _log.warning("WbVideoGen persist delete fail job=%s: %s", job_id, e)
 
 
 def mark_mp4_served(job_id: str) -> None:

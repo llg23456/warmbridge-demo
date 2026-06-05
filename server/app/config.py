@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     vivo_app_id: str = ""
     # 分享解读：DuckDuckGo Instant Answer 轻量检索（无需单独 API Key；内网/限流时可能为空）
     web_search_enabled: bool = True
+    # 通俗视频封面：RAWG 游戏图（https://rawg.io/apidocs）；未配置时静默降级 Bing
+    rawg_api_key: str = ""
     # 通俗视频 D2：vivo 文生图/轮播（false 时 D1 仍可用 Ken Burns + 封面）
     popular_video_use_vivo_media: bool = True
     # §5 文生图
@@ -36,6 +38,7 @@ class Settings(BaseSettings):
     popular_video_use_vivo_intro: bool = True
     vivo_video_submit_url: str = "https://api-ai.vivo.com.cn/api/v1/submit_task"
     vivo_video_query_url: str = "https://api-ai.vivo.com.cn/api/v1/query_task"
+    # 可选：Doubao-Seedance-1.0-pro（默认）、Doubao-Seedance-2.0、Doubao-Seedance-2.0-fast
     vivo_video_model: str = "Doubao-Seedance-1.0-pro"
     vivo_video_duration_sec: int = 5
     vivo_video_submit_timeout_sec: float = 60.0

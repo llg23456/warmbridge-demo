@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.services import popular_video_quota, vivo_image
+from app.services.popular_video_prompt_safety import sanitize_visual_prompt
 from app.services.video_slideshow import image_to_jpeg
 
 _log = logging.getLogger(__name__)
@@ -69,18 +70,35 @@ async def _generate_one_slide(
         raise
     except vivo_image.ContentPolicyError:
         _log.warning(
-            "WbVideoGen slide_%s policy reject preview=%s -> retry safe prompt",
+            "WbVideoGen slide_%s policy reject preview=%s -> sanitize then safe prompt",
             index,
             preview,
         )
         popular_video_quota.refund_image_slot()
+        sanitized = sanitize_visual_prompt(prompt, topic=safe_topic)
+        if sanitized and sanitized != prompt:
+            if popular_video_quota.consume_image_slot():
+                try:
+                    out, cdn = await _fetch_slide_image(work, index, sanitized)
+                    _log.info("WbVideoGen slide_%s policy sanitize retry ok", index)
+                    return out, cdn
+                except vivo_image.ContentPolicyError:
+                    popular_video_quota.refund_image_slot()
+                    _log.warning("WbVideoGen slide_%s policy sanitize retry still blocked", index)
+                except vivo_image.QuotaExceededError as e:
+                    popular_video_quota.refund_image_slot()
+                    popular_video_quota.sync_from_vivo_rate_limit(e.body)
+                    raise
+                except Exception as e_s:
+                    popular_video_quota.refund_image_slot()
+                    _log.warning("WbVideoGen slide_%s policy sanitize retry fail: %s", index, e_s)
         fallback = _safe_fallback_prompt(safe_topic, index)
         if not popular_video_quota.consume_image_slot():
             _log.warning("WbVideoGen slide_%s policy retry skipped (no quota)", index)
             return None, ""
         try:
             out, cdn = await _fetch_slide_image(work, index, fallback)
-            _log.info("WbVideoGen slide_%s policy retry ok", index)
+            _log.info("WbVideoGen slide_%s policy safe fallback ok", index)
             return out, cdn
         except vivo_image.QuotaExceededError as e:
             popular_video_quota.refund_image_slot()
