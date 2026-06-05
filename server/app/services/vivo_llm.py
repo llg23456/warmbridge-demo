@@ -13,6 +13,30 @@ from app.schemas import ExplainResponse
 
 DEFAULT_SUGGESTIONS = ["这对我有啥用？", "要注意啥？", "还有啥说法？"]
 
+# 文档 §3.3 深度思考字段（按模型分支，勿混用）
+CHAT_MODELS_DOUBAO_SEED = (
+    "Doubao-Seed-2.0-mini",
+    "Doubao-Seed-2.0-lite",
+    "Doubao-Seed-2.0-pro",
+)
+CHAT_MODEL_VOLC_DEEPSEEK = "Volc-DeepSeek-V3.2"
+CHAT_MODEL_QWEN = "qwen3.5-plus"
+
+
+def apply_thinking_params(payload: dict[str, Any], model: str, *, enabled: bool = False) -> None:
+    """
+    Volc-DeepSeek / Doubao-Seed → thinking.type；
+    qwen3.5-plus → enable_thinking。
+    结构化 JSON 任务默认 disabled，减少延迟与 reasoning 干扰正文。
+    """
+    m = (model or "").strip()
+    low = m.lower()
+    if low == CHAT_MODEL_QWEN.lower() or low.startswith("qwen3.5"):
+        payload["enable_thinking"] = enabled
+        return
+    if "deepseek" in low or low.startswith("doubao-seed"):
+        payload["thinking"] = {"type": "enabled" if enabled else "disabled"}
+
 SYSTEM_PROMPT = """你是「暖桥」家庭助手的撰稿人，读者是 50–70 岁、少上网的长辈。
 
 【五条输出字段】
@@ -129,6 +153,7 @@ async def explain_from_material(
         "max_tokens": 3072,
         "stream": False,
     }
+    apply_thinking_params(payload, settings.vivo_chat_model, enabled=False)
 
     request_id = str(uuid.uuid4())
     headers = {

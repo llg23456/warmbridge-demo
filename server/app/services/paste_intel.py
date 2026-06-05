@@ -34,15 +34,28 @@ def _dedupe_keep_order(items: Iterable[str]) -> list[str]:
     return out
 
 
+def _extract_hashtags(text: str) -> list[str]:
+    """解析 #话题# 与未闭合尾标签（如 #牢大 https://，旧正则会漏掉）。"""
+    text_no_url = re.sub(r"https?://\S+", " ", text)
+    segments = re.split(r"#+", text_no_url)
+    out: list[str] = []
+    for seg in segments[1:]:
+        tag = seg.strip().split("\n")[0].strip().rstrip(".,，…、 ")
+        if not tag or tag in _STOP or tag in out or re.match(r"^\.+$", tag):
+            continue
+        if len(tag) > 14:
+            continue
+        if any(x in tag for x in ("复制打开", "看看", "抖音", "哔哩", "http")):
+            continue
+        out.append(tag)
+    return out
+
+
 def extract_keywords(raw: str) -> list[str]:
     if not raw or not raw.strip():
         return []
     text = re.sub(r"https?://\S+", " ", raw)
-    from_hash: list[str] = []
-    for t in re.findall(r"#\s*([^#]+?)\s*#", text):
-        t = t.strip().rstrip(".,，…、")
-        if 1 <= len(t) <= 14 and t not in _STOP and not re.match(r"^\.+$", t):
-            from_hash.append(t)
+    from_hash: list[str] = _extract_hashtags(raw)
 
     brackets = re.findall(r"【([^】]{1,40})】", text)
     from_bracket: list[str] = []
@@ -70,14 +83,31 @@ def extract_keywords(raw: str) -> list[str]:
     return [c for c in merged if c not in _STOP][:6]
 
 
+def sanitize_display_title(s: str) -> str:
+    """列表/详情展示用标题：去掉链接、抖音口令尾部噪声。"""
+    if not (s or "").strip():
+        return ""
+    t = s.strip()
+    t = re.split(r"https?://", t, maxsplit=1)[0]
+    t = re.sub(r"https?://\S+", "", t)
+    t = re.sub(r"\s*oqr:/\S*", "", t, flags=re.I)
+    t = re.sub(r"\s*\d{1,2}/\d{1,2}\s+", " ", t)
+    t = re.sub(r"\s*:\d{1,2}[ap]m\s*", " ", t, flags=re.I)
+    t = re.sub(r"\s*e@[a-z0-9.]+\s*", " ", t, flags=re.I)
+    t = re.sub(r"复制打开抖音[，,]?", "", t, flags=re.I)
+    t = re.sub(r"^[\d.:\s]+", "", t)
+    t = re.sub(r"\s+", " ", t).strip().rstrip("，,、 ")
+    t = re.sub(r"\.{3,}\s*$", "…", t)
+    return t[:120] if t else ""
+
+
 def title_from_share_paste(raw: str) -> str:
     # 】 后接正文：抖音口令最常见
     m = re.search(r"】\s*([^#\n【]{3,100}?)(?=\s*#|\s*$|\n)", raw)
     if m:
-        line = m.group(1).strip().rstrip("，,、 ")
-        line = re.sub(r"\s*\.{3,}\s*$", "", line)
+        line = sanitize_display_title(m.group(1))
         if len(line) >= 4:
-            return line[:120]
+            return line
 
     text = re.sub(r"https?://\S+", "", raw).strip()
     text = re.sub(r"^[\d.:\s]+", "", text)
@@ -94,11 +124,10 @@ def title_from_share_paste(raw: str) -> str:
             if m3:
                 tail = m3.group(1).split("#")[0].strip().rstrip("，,")[:30]
             if tail and tail not in inner:
-                return f"{inner[:16]}｜{tail}"[:120]
-            return inner[:120]
+                return sanitize_display_title(f"{inner[:16]}｜{tail}")
+            return sanitize_display_title(inner)
 
-    first = re.split(r"[\n#]", text, maxsplit=1)[0].strip()
-    first = re.sub(r"\s+", " ", first)[:120]
+    first = sanitize_display_title(re.split(r"[\n#]", text, maxsplit=1)[0])
     if len(first) >= 4:
         return first
     return ""
@@ -116,19 +145,19 @@ def suggest_title_from_paste(raw: str, fetched_title: str) -> str:
         return paste_title
 
     if ft and ("bilibili" in ft.lower() or "哔哩" in ft):
-        return _clean_bili_title(ft)
+        return sanitize_display_title(_clean_bili_title(ft))
 
     if paste_title and ("复制打开" in raw or "抖音" in raw):
         return paste_title
 
     if not is_bad_ft:
-        return ft
+        return sanitize_display_title(ft)
 
     kws = extract_keywords(raw)
     if kws:
         return f"关于「{kws[0]}」的分享"[:120]
 
-    return ft or "分享的链接"
+    return sanitize_display_title(ft) or "分享的链接"
 
 
 def _clean_bili_title(title: str) -> str:

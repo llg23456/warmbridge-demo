@@ -23,8 +23,9 @@ class PrepareDiag:
     cover_url: str = ""
     cover_download_ok: bool = False
     used_placeholder_cover: bool = False
-    cover_source: str = ""  # og | bing_image | placeholder
+    cover_source: str = ""  # og | bilibili_api | rawg | bing_image | placeholder
     bing_image_keyword: str = ""
+    cover_resolve_detail: str = ""
     skip_page_material: bool = False
     page_description: str = ""
     page_text: str = ""
@@ -33,16 +34,29 @@ class PrepareDiag:
 
     def cover_status(self) -> tuple[str, str]:
         if self.cover_download_ok:
+            if self.cover_source == "bilibili_api":
+                return "✅ B 站封面", "从 B 站官方 view API 拉取视频封面"
+            if self.cover_source == "rawg":
+                kw = self.bing_image_keyword or "（游戏名）"
+                return "✅ RAWG 图", f"RAWG 游戏库命中「{kw}」封面"
             if self.cover_source == "bing_image":
                 kw = self.bing_image_keyword or "（关键词）"
-                return "✅ Bing 图", f"关键词「{kw}」从 Bing 图片搜索抓取（免费，不耗 AI 额度）"
+                detail = (self.cover_resolve_detail or "").strip()
+                note = f"关键词「{kw}」Bing 图片搜索（免费）"
+                if detail:
+                    note = f"{note}；{detail}"
+                return "✅ Bing 图", note
             return "✅ 已下载", "已从 og/预览 URL 拉取封面图"
         if self.used_placeholder_cover:
+            detail = (self.cover_resolve_detail or "").strip()
             if self.bing_image_keyword:
-                return "❌ 占位图", f"Bing 图片搜索「{self.bing_image_keyword}」未命中，已用橙色占位图"
+                note = f"封面解析「{self.bing_image_keyword}」未命中"
+                if detail:
+                    note = f"{note}（{detail}）"
+                return "❌ 占位图", f"{note}，已用橙色占位图"
             url = (self.cover_url or "").strip()
             if not url:
-                return "❌ 占位图", "og 封面为空且 Bing 图未命中，已用橙色占位图"
+                return "❌ 占位图", "og 封面为空且备用图源未命中，已用橙色占位图"
             return "❌ 占位图", f"封面 URL 下载失败，已用橙色占位图；URL={url[:80]}"
         return "❌ 无", "封面未就绪"
 
@@ -64,8 +78,8 @@ class PrepareDiag:
 
     def ocr_status(self) -> tuple[str, str]:
         t = (self.cover_ocr or "").strip()
-        if self.cover_source == "bing_image":
-            return "⏭ 跳过", "Bing 配图无字幕，不做 OCR（正常）"
+        if self.cover_source in ("bing_image", "rawg"):
+            return "⏭ 跳过", f"{self.cover_source} 配图不做 OCR（正常）"
         if t:
             return "✅ 有", f"{len(t)} 字"
         if self.used_placeholder_cover:

@@ -12,8 +12,17 @@ _session_items: dict[str, FeedItem] = {}
 _explain_cache: dict[str, ExplainResponse] = {}
 
 
+def _with_clean_title(it: FeedItem) -> FeedItem:
+    from app.services.paste_intel import sanitize_display_title
+
+    clean = sanitize_display_title(it.title)
+    if clean and clean != it.title:
+        return it.model_copy(update={"title": clean})
+    return it
+
+
 def add_child_item(item: FeedItem) -> None:
-    _child_items[item.id] = item
+    _child_items[item.id] = _with_clean_title(item)
 
 
 def patch_child_item(item_id: str, **fields: object) -> None:
@@ -30,7 +39,13 @@ def put_session_item(item: FeedItem) -> None:
 
 
 def child_items_list() -> list[FeedItem]:
-    return list(_child_items.values())
+    out: list[FeedItem] = []
+    for item_id, it in list(_child_items.items()):
+        cleaned = _with_clean_title(it)
+        if cleaned.title != it.title:
+            _child_items[item_id] = cleaned
+        out.append(cleaned)
+    return out
 
 
 def get_any_item(item_id: str) -> Optional[FeedItem]:
@@ -39,7 +54,11 @@ def get_any_item(item_id: str) -> Optional[FeedItem]:
     if item_id in _session_items:
         return _session_items[item_id]
     if item_id in _child_items:
-        return _child_items[item_id]
+        it = _child_items[item_id]
+        cleaned = _with_clean_title(it)
+        if cleaned.title != it.title:
+            _child_items[item_id] = cleaned
+        return cleaned
     for it in feed_mock.all_mock_items():
         if it.id == item_id:
             return it

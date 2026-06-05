@@ -3,15 +3,22 @@
 from __future__ import annotations
 
 import base64
+import io
 import json
+import logging
 import time
 import urllib.parse
 import uuid
+import wave
+from dataclasses import dataclass
 from typing import Any
 
 import websockets
 
 from app.config import settings
+from app.services.video_subtitles import TimedSegment, split_sentences
+
+_log = logging.getLogger(__name__)
 
 
 def _pcm_to_wav(pcm: bytes, sample_rate: int = 24000) -> bytes:
@@ -191,3 +198,66 @@ async def synthesize_wav(text: str) -> bytes:
             )
 
     return _pcm_to_wav(bytes(pcm))
+
+
+def _wav_duration_seconds(wav_bytes: bytes) -> float:
+    if not wav_bytes or len(wav_bytes) < 44:
+        return 0.0
+    with wave.open(io.BytesIO(wav_bytes), "rb") as w:
+        rate = w.getframerate() or 24000
+        return max(0.05, w.getnframes() / float(rate))
+
+
+def _concat_wav_bytes(parts: list[bytes]) -> bytes:
+    if not parts:
+        return b""
+    if len(parts) == 1:
+        return parts[0]
+    pcm = bytearray()
+    sample_rate = 24000
+    for blob in parts:
+        with wave.open(io.BytesIO(blob), "rb") as w:
+            sample_rate = w.getframerate() or sample_rate
+            pcm.extend(w.readframes(w.getnframes()))
+    return _pcm_to_wav(bytes(pcm), sample_rate=sample_rate)
+
+
+@dataclass
+class SegmentedSynthesis:
+    wav_bytes: bytes
+    segments: list[TimedSegment]
+
+
+async def synthesize_wav_by_sentences(text: str) -> SegmentedSynthesis:
+    """按句多次 TTS，拼接 WAV 并返回每句实测时间轴（供字幕对齐）。"""
+    narration = (text or "").strip()
+    if not narration:
+        raise RuntimeError("朗读文本为空。")
+
+    sentences = split_sentences(narration)
+    if not sentences:
+        raise RuntimeError("朗读文本为空。")
+
+    if len(sentences) == 1:
+        wav = await synthesize_wav(sentences[0])
+        dur = _wav_duration_seconds(wav)
+        _log.info("WbVideoGen tts segments=1 duration=%.2fs", dur)
+        return SegmentedSynthesis(
+            wav_bytes=wav,
+            segments=[TimedSegment(text=sentences[0], start_sec=0.0, end_sec=dur)],
+        )
+
+    wav_parts: list[bytes] = []
+    segments: list[TimedSegment] = []
+    t = 0.0
+    for i, sent in enumerate(sentences, start=1):
+        wav = await synthesize_wav(sent)
+        dur = _wav_duration_seconds(wav)
+        segments.append(TimedSegment(text=sent, start_sec=t, end_sec=t + dur))
+        wav_parts.append(wav)
+        _log.info("WbVideoGen tts segment %s/%s dur=%.2fs preview=%s", i, len(sentences), dur, sent[:24])
+        t += dur
+
+    combined = _concat_wav_bytes(wav_parts)
+    _log.info("WbVideoGen tts segments=%s total_duration=%.2fs", len(segments), t)
+    return SegmentedSynthesis(wav_bytes=combined, segments=segments)
