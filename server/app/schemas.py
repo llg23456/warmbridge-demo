@@ -38,6 +38,10 @@ class ExplainResponse(BaseModel):
     from_llm: bool = False
     # 固定 3 条口语短追问（≤14 字），离线时默认兜底
     suggested_questions: list[str] = Field(default_factory=list)
+    # 仅当本次请求带 question 时填充：追问直答（不替换 plain_summary）
+    follow_up_answer: str = ""
+    follow_up_from_llm: bool = False
+    follow_up_searched: bool = False
 
 
 class ImageExplainResponse(BaseModel):
