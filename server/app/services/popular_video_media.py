@@ -43,9 +43,15 @@ def _prompt_preview(prompt: str) -> str:
 
 
 async def _fetch_slide_image(work: Path, index: int, prompt: str) -> tuple[Path, str]:
+    work.mkdir(parents=True, exist_ok=True)
     cdn_url = await vivo_image.generate_image_url(prompt)
     raw = work / f"gen_raw_{index}.bin"
-    raw.write_bytes(await vivo_image.download_image_bytes(cdn_url))
+    data = await vivo_image.download_image_bytes(cdn_url)
+    if len(data) < 500:
+        raise RuntimeError(f"文生图下载过小 index={index} bytes={len(data)}")
+    raw.write_bytes(data)
+    if not raw.is_file():
+        raise FileNotFoundError(f"文生图缓存写入失败: {raw}")
     out = work / f"slide_{index}.jpg"
     image_to_jpeg(raw, out)
     _log.info("WbVideoGen slide_%s ok bytes=%s cdn=%s", index, out.stat().st_size, cdn_url[:80])

@@ -51,10 +51,28 @@ def _extract_hashtags(text: str) -> list[str]:
     return out
 
 
+def extract_note_entities(note: str) -> list[str]:
+    """从分享备注/摘要抽实体（如「那维莱特深渊」「西华大学招生」）。"""
+    n = (note or "").strip()
+    if not n or len(n) < 2:
+        return []
+    out: list[str] = []
+    for part in re.split(r"[,，、|/\n]", n):
+        w = part.strip().strip("「」\"' ")
+        if not w or w in _STOP or len(w) < 2 or len(w) > 16:
+            continue
+        if re.fullmatch(r"[A-Za-z0-9_]+", w):
+            continue
+        if w not in out:
+            out.append(w)
+    return out[:4]
+
+
 def extract_keywords(raw: str) -> list[str]:
     if not raw or not raw.strip():
         return []
     text = re.sub(r"https?://\S+", " ", raw)
+    from_note = extract_note_entities(raw)
     from_hash: list[str] = _extract_hashtags(raw)
 
     brackets = re.findall(r"【([^】]{1,40})】", text)
@@ -75,8 +93,10 @@ def extract_keywords(raw: str) -> list[str]:
         if w not in _STOP:
             from_phrase.append(w)
 
-    # 有话话题标签时优先用标签（如 #嘎子#），略过【UP主的作品】类括号词，减少误检
-    if from_hash:
+    # 备注实体 > 话题标签 > 括号词
+    if from_note:
+        merged = _dedupe_keep_order(from_note + from_hash + from_phrase)
+    elif from_hash:
         merged = _dedupe_keep_order(from_hash + from_phrase)
     else:
         merged = _dedupe_keep_order(from_hash + from_phrase + from_bracket)

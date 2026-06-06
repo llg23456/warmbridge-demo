@@ -14,7 +14,7 @@
 | **孩子** | **分享链接**（含备注 / 粘贴口令）写入后端，家长端可见；首页 **图片识梗** |
 | **图片识梗** | 相册选图 → `POST /api/image/explain`（`multipart` 字段 **`file`**）→ OCR 文本再走蓝心解读；**详情页顶部展示本机缓存的原图**（不展示大段 OCR 原文，便于长辈对照画面） |
 | **视频快解析** | 粘贴分享文案或链接 → 服务端抽取信息生成会话条目，详情页解读流程与资讯一致 |
-| **通俗视频生成** | D3 片头 + 文生图轮播 + **按句 TTS/字幕对齐** + 深入口播；封面 **B 站/RAWG/Bing**（动漫类仍易占位）；Job **持久化+完成通知**；报告 `reports/{job_id}.md` §0 |
+| **通俗视频生成** | D3 片头 + 文生图轮播 + **按句 TTS/字幕对齐** + **连贯口播**（禁止 1.2.3. 分点）；封面 **B 站/RAWG/Bing**（动漫类仍易占位）；Job **持久化+完成通知**；报告 `reports/{job_id}.md` §0 |
 | **年轻人话题** | 单独频道列表（与标签热点数据源一致，演示多入口） |
 
 **离线 / 降级约定**
@@ -221,6 +221,7 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | `VIVO_APP_KEY` | 云端能力必填 | `Authorization: Bearer <AppKey>`（Chat / OCR / TTS） |
 | `VIVO_APP_ID` | 识图建议填 | 与文档 `aigc`+AppId、`businessid` 回退一致 |
 | `VIVO_CHAT_URL` / `VIVO_CHAT_MODEL` | 否 | 蓝心 Chat Completions |
+| `VIVO_EXPLAIN_MODEL` / `_FALLBACK` / `_USE_TOOLS` | 否 | 解读追问：**pro** + tools 联网；见 `.env.example` |
 | `VIVO_OCR_URL` / `VIVO_OCR_BUSINESSID` / `VIVO_OCR_POS` | 识图必填 businessid | 见 `.env.example` §8 |
 | `VIVO_TTS_ENGINEID` / `VIVO_TTS_VCN` / `VIVO_TTS_VAID` | 否 | §14 流式 TTS；签名头等已在代码中按文档处理 |
 | `WEB_SEARCH_ENABLED` | 否 | `true`：分享 enrich + **通俗视频 analyze 前检索** |
@@ -249,6 +250,12 @@ python -c "from app.config import settings; print('VIVO_APP_KEY 已加载:', boo
 | 通俗视频 og/正文为空 | 抖音口令 **正常**；看 `reports/{job_id}.md` §0 |
 | 封面橙色占位 | 看报告 §0：游戏类查 `RAWG_API_KEY`；**动漫类**（剑风传奇）Bing 常 score=0，口播仍正常 |
 | 玩梗口播偏题 | **重新分享** 完整口令（含全部 `#话题#`）；旧条目 `share_keywords` 不全 |
+| 追问答案跑顶部 | 已改：**追问记录**在按钮下方；响应字段 `follow_up_answer` |
+| 字幕拆词（最/新） | 已改：一句一条，28 字内，仅逗号切分 |
+| 解读写「从标题和关键词看」 | 已改：`vivo_llm` **只给结论**、禁推理腔；旧缓存需 **重新解读** |
+| 词语小抄显示 `['…']` | 已改：`normalize_glossary()` → **1. 2. 3.** 分行 |
+| 口播念 1.2.3. / 粘 Bing 原文 | 已改：连贯口播 + `normalize_narration_prose()`；本地兜底不再 dump 检索 |
+| 测 Chat tools | `cd server` → `python test_tools.py` |
 | 封面像文物/王室 | 「皇室战争」Bing 歧义；已消歧 + RAWG |
 | 文生图 code=1003 | vivo 限流 → Ken Burns 仍 done；关 `POPULAR_VIDEO_USE_VIVO_MEDIA` 演示 |
 | 通俗视频任务重启丢失 | **Job 已持久化**；`running` 变 `interrupted`，需重新生成；分享列表仍内存 |

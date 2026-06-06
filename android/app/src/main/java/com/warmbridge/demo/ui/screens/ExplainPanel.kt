@@ -20,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -32,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.ExplainRequest
 import com.warmbridge.demo.data.remote.ExplainResponse
+import com.warmbridge.demo.data.remote.FollowUpTurn
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.data.remote.TtsRequest
 import com.warmbridge.demo.util.humanizeNetworkError
@@ -54,21 +56,23 @@ fun ExplainPanel(
     val scope = rememberCoroutineScope()
     var explain by remember(itemId) { mutableStateOf<ExplainResponse?>(null) }
     var loading by remember(itemId) { mutableStateOf(false) }
+    var followUpLoading by remember(itemId) { mutableStateOf(false) }
     var err by remember(itemId) { mutableStateOf<String?>(null) }
     var followUp by remember(itemId) { mutableStateOf("") }
+    val followUpHistory = remember(itemId) { mutableStateListOf<FollowUpTurn>() }
     var ttsLoading by remember(itemId) { mutableStateOf(false) }
     var player by remember { mutableStateOf<MediaPlayer?>(null) }
     var autoDone by remember(itemId) { mutableStateOf(false) }
     var hideListen by remember(itemId) { mutableStateOf(false) }
     var ttsSoft by remember(itemId) { mutableStateOf<String?>(null) }
 
-    fun runExplain(question: String? = null) {
+    fun runInitialExplain() {
         scope.launch {
             loading = true
             err = null
             try {
                 explain = NetworkModule.api.explain(
-                    ExplainRequest(itemId = itemId, question = question?.ifBlank { null }),
+                    ExplainRequest(itemId = itemId, question = null),
                 )
                 hideListen = false
                 ttsSoft = null
@@ -76,6 +80,41 @@ fun ExplainPanel(
                 humanizeNetworkError(e)?.let { err = it }
             } finally {
                 loading = false
+            }
+        }
+    }
+
+    fun runFollowUp(question: String) {
+        val q = question.trim()
+        if (q.isEmpty()) return
+        scope.launch {
+            followUpLoading = true
+            err = null
+            try {
+                val resp = NetworkModule.api.explain(
+                    ExplainRequest(itemId = itemId, question = q),
+                )
+                if (explain == null) {
+                    explain = resp
+                }
+                val answer = resp.followUpAnswer.trim()
+                if (answer.isNotEmpty()) {
+                    followUpHistory.add(
+                        FollowUpTurn(
+                            question = q,
+                            answer = answer,
+                            fromLlm = resp.followUpFromLlm,
+                            searched = resp.followUpSearched,
+                        ),
+                    )
+                    followUp = ""
+                } else {
+                    err = "追问未返回回答，请稍后再试。"
+                }
+            } catch (e: Exception) {
+                humanizeNetworkError(e)?.let { err = it }
+            } finally {
+                followUpLoading = false
             }
         }
     }
@@ -118,17 +157,15 @@ fun ExplainPanel(
                 val bytes = Base64.decode(resp.audioBase64, Base64.DEFAULT)
                 val f = File(context.cacheDir, "wb_tts_${System.currentTimeMillis()}.wav")
                 f.writeBytes(bytes)
-                withContext(Dispatchers.Main) {
-                    player?.release()
-                    player = MediaPlayer().apply {
-                        setDataSource(f.absolutePath)
-                        prepare()
-                        start()
-                    }
+                player?.release()
+                player = MediaPlayer().apply {
+                    setDataSource(f.absolutePath)
+                    prepare()
+                    start()
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 hideListen = true
-                ttsSoft = "语音请求失败。（${e.message?.take(80) ?: "网络异常"}）"
+                ttsSoft = "语音暂不可用，请阅读文字版解读。"
             } finally {
                 ttsLoading = false
             }
@@ -136,14 +173,14 @@ fun ExplainPanel(
     }
 
     val buttonGap = 12.dp
-    Column(modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
         if (showExplainButton) {
             Button(
-                onClick = { runExplain(null) },
+                onClick = { runInitialExplain() },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = buttonGap),
-                enabled = !loading,
+                enabled = !loading && !followUpLoading,
             ) {
                 Text("AI 讲给长辈听", modifier = Modifier.padding(vertical = 8.dp))
             }
@@ -187,11 +224,9 @@ fun ExplainPanel(
                 ) {
                     e.suggestedQuestions.forEach { q ->
                         AssistChip(
-                            onClick = {
-                                followUp = q
-                                runExplain(q)
-                            },
+                            onClick = { runFollowUp(q) },
                             label = { Text(q, style = MaterialTheme.typography.bodyLarge) },
+                            enabled = !followUpLoading,
                         )
                     }
                 }
@@ -201,7 +236,7 @@ fun ExplainPanel(
                 Button(
                     onClick = { playTts(e.plainSummary) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !loading && !ttsLoading,
+                    enabled = !loading && !followUpLoading && !ttsLoading,
                 ) {
                     Text("听这段摘要", modifier = Modifier.padding(vertical = 8.dp))
                 }
@@ -224,17 +259,18 @@ fun ExplainPanel(
             label = { Text("追问一句（可选）") },
             textStyle = MaterialTheme.typography.bodyLarge,
             minLines = 2,
+            enabled = !followUpLoading,
         )
         Button(
-            onClick = { runExplain(followUp) },
+            onClick = { runFollowUp(followUp) },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = buttonGap),
-            enabled = !loading,
+            enabled = !followUpLoading && followUp.isNotBlank(),
         ) {
             Text("带着追问重新解读", modifier = Modifier.padding(vertical = 8.dp))
         }
-        if (loading && explain != null) {
+        if (followUpLoading) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -247,6 +283,28 @@ fun ExplainPanel(
                     modifier = Modifier.padding(start = 12.dp),
                     style = MaterialTheme.typography.bodyLarge,
                 )
+            }
+        }
+        if (followUpHistory.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            SectionTitle("追问记录")
+            followUpHistory.forEach { turn ->
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "问：${turn.question}",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(turn.answer, style = MaterialTheme.typography.bodyLarge)
+                if (turn.searched) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "（已联网补充）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.tertiary,
+                    )
+                }
             }
         }
     }

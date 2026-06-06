@@ -29,6 +29,16 @@ data class ExplainResponse(
     @SerializedName("disclaimer") val disclaimer: String,
     @SerializedName("from_llm") val fromLlm: Boolean = false,
     @SerializedName("suggested_questions") val suggestedQuestions: List<String> = emptyList(),
+    @SerializedName("follow_up_answer") val followUpAnswer: String = "",
+    @SerializedName("follow_up_from_llm") val followUpFromLlm: Boolean = false,
+    @SerializedName("follow_up_searched") val followUpSearched: Boolean = false,
+)
+
+data class FollowUpTurn(
+    val question: String,
+    val answer: String,
+    val fromLlm: Boolean = false,
+    val searched: Boolean = false,
 )
 
 data class ImageExplainResponse(

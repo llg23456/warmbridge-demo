@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     vivo_app_key: str = ""
     # §3 Chat：模型与 URL（可用环境变量覆盖默认值）
     vivo_chat_model: str = "Doubao-Seed-2.0-mini"
+    # AI 解读 / 追问：优先 pro，限流时 fallback lite
+    vivo_explain_model: str = "Doubao-Seed-2.0-pro"
+    vivo_explain_model_fallback: str = "Doubao-Seed-2.0-lite"
+    vivo_explain_use_tools: bool = True
     vivo_chat_url: str = "https://api-ai.vivo.com.cn/v1/chat/completions"
     # §8 等：部分接口（如通用 OCR 的 businessid）可能需 AppId，当前 explain 流程未使用
     vivo_app_id: str = ""

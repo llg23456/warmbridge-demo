@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import io
 import json
@@ -16,9 +17,12 @@ from typing import Any
 import websockets
 
 from app.config import settings
-from app.services.video_subtitles import TimedSegment, split_sentences
+from app.services.video_subtitles import TimedSegment, is_speakable_sentence, split_sentences
 
 _log = logging.getLogger(__name__)
+
+TTS_MAX_RETRIES = 3
+TTS_RECV_TIMEOUT_SEC = 90.0
 
 
 def _pcm_to_wav(pcm: bytes, sample_rate: int = 24000) -> bytes:
@@ -95,12 +99,31 @@ def _absorb_audio_chunk(msg: dict[str, Any], pcm: bytearray) -> bool:
 
 
 async def synthesize_wav(text: str) -> bytes:
+    clipped = _clip_tts_text(text)
+    if not clipped or not is_speakable_sentence(clipped):
+        raise RuntimeError(f"朗读文本无效（空句或纯标点）：{text!r}")
+    last_err: Exception | None = None
+    for attempt in range(1, TTS_MAX_RETRIES + 1):
+        try:
+            return await _synthesize_wav_once(clipped)
+        except Exception as e:
+            last_err = e
+            _log.warning(
+                "WbVideoGen TTS attempt %s/%s fail preview=%s err=%s",
+                attempt,
+                TTS_MAX_RETRIES,
+                clipped[:24],
+                e,
+            )
+            if attempt < TTS_MAX_RETRIES:
+                await asyncio.sleep(1.2 * attempt)
+    raise last_err or RuntimeError("TTS 合成失败")
+
+
+async def _synthesize_wav_once(text: str) -> bytes:
     key = (settings.vivo_app_key or "").strip()
     if not key:
         raise RuntimeError("未配置 VIVO_APP_KEY，无法调用 TTS。")
-    clipped = _clip_tts_text(text)
-    if not clipped:
-        raise RuntimeError("朗读文本为空。")
 
     rid = str(uuid.uuid4())
     uid = uuid.uuid4().hex[:32]
@@ -142,7 +165,10 @@ async def synthesize_wav(text: str) -> bytes:
         max_size=16 * 1024 * 1024,
         open_timeout=30,
     ) as ws:
-        raw_first = await ws.recv()
+        try:
+            raw_first = await asyncio.wait_for(ws.recv(), timeout=TTS_RECV_TIMEOUT_SEC)
+        except asyncio.TimeoutError as e:
+            raise RuntimeError("TTS 握手后首包超时") from e
         raw_first = _decode_ws_text(raw_first)
         try:
             first: dict[str, Any] = json.loads(raw_first)
@@ -165,7 +191,7 @@ async def synthesize_wav(text: str) -> bytes:
             "vcn": settings.vivo_tts_vcn,
             "speed": 50,
             "volume": 55,
-            "text": base64.b64encode(clipped.encode("utf-8")).decode("ascii"),
+            "text": base64.b64encode(text.encode("utf-8")).decode("ascii"),
             "encoding": "utf8",
             "reqId": int(time.time() * 1000),
         }
@@ -173,7 +199,13 @@ async def synthesize_wav(text: str) -> bytes:
 
         finished = False
         while True:
-            raw = await ws.recv()
+            try:
+                raw = await asyncio.wait_for(ws.recv(), timeout=TTS_RECV_TIMEOUT_SEC)
+            except asyncio.TimeoutError as e:
+                raise RuntimeError(
+                    f"TTS 接收超时（{int(TTS_RECV_TIMEOUT_SEC)}s），"
+                    f"已收 pcm={len(pcm)} 字节；请检查网络或稍后重试。"
+                ) from e
             raw = _decode_ws_text(raw)
             try:
                 msg: dict[str, Any] = json.loads(raw)
@@ -234,9 +266,17 @@ async def synthesize_wav_by_sentences(text: str) -> SegmentedSynthesis:
     if not narration:
         raise RuntimeError("朗读文本为空。")
 
-    sentences = split_sentences(narration)
+    raw_sentences = split_sentences(narration)
+    sentences = [s for s in raw_sentences if is_speakable_sentence(s)]
+    dropped = len(raw_sentences) - len(sentences)
+    if dropped:
+        _log.warning(
+            "WbVideoGen TTS dropped %s empty/punct-only sentence(s) from %s parts",
+            dropped,
+            len(raw_sentences),
+        )
     if not sentences:
-        raise RuntimeError("朗读文本为空。")
+        raise RuntimeError("朗读文本为空或仅含标点。")
 
     if len(sentences) == 1:
         wav = await synthesize_wav(sentences[0])

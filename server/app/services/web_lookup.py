@@ -37,6 +37,8 @@ _IMAGE_QUERY_OVERRIDES: dict[str, str] = {
     "剑风传奇": "剑风传奇 漫画 格斯 封面",
     "牢大": "剑风传奇 漫画 暗黑奇幻 插画",
     "劳大": "剑风传奇 漫画 暗黑奇幻 插画",
+    "原神": "原神 游戏 截图 提瓦特",
+    "原神深渊": "原神 深境螺旋 游戏截图",
 }
 
 # 标题尾部噪声，剥离后更利于检索（如「皇室战争主义」→「皇室战争」）
@@ -769,6 +771,8 @@ def extract_video_search_keywords(
     for k in from_paste:
         add(k, from_hashtag=True)
 
+    for w in paste_intel.extract_note_entities(summary):
+        add(w, from_summary=True)
     for part in re.split(r"[,，、|]", summary):
         w = part.strip()
         if 2 <= len(w) <= 12 and w not in _EMOTION_TAGS:
@@ -839,6 +843,8 @@ _SEARCH_QUERY_OVERRIDES: dict[str, str] = {
     "劳大": "剑风传奇 漫画 网络梗",
     "周杰伦": "周杰伦 歌手 华语流行 音乐人",
     "八度空间": "周杰伦 专辑 八度空间 音乐",
+    "原神": "原神 游戏 米哈游 开放世界 RPG",
+    "原神深渊": "原神 深境螺旋 深渊 配队攻略",
 }
 
 _BAIKE_ALIASES: dict[str, list[str]] = {
@@ -848,6 +854,8 @@ _BAIKE_ALIASES: dict[str, list[str]] = {
     "劳大": ["科比·布莱恩特", "科比"],
     "周杰伦": ["周杰伦", "周杰倫"],
     "八度空间": ["八度空间", "八度空間"],
+    "原神": ["原神", "Genshin Impact"],
+    "原神深渊": ["深境螺旋", "原神深渊", "原神"],
 }
 
 # Bing 误命中：Clash 代理 / VPN（与手游 Clash Royale 无关）
@@ -898,6 +906,15 @@ _KNOWN_TOPIC_BLURBS: dict[str, str] = {
         "《八度空间》是周杰伦 2002 年发行的录音室专辑，代表曲目有《半岛铁盒》《暗号》《回到过去》《最后的战役》等。"
         "《七里香》是 2004 年同名专辑主打歌，《晴天》出自专辑《叶惠美》——"
         "口播时不要把《七里香》《晴天》说成《八度空间》里的歌。"
+    ),
+    "原神": (
+        "《原神》是米哈游出品的开放世界冒险 RPG，玩家在幻想世界「提瓦特」里探索、打怪、做任务。"
+        "游戏里不同角色带火、水、雷、冰等元素属性，战斗常讲究元素反应和队伍搭配。"
+    ),
+    "原神深渊": (
+        "「深渊」在《原神》里一般指「深境螺旋」高难度闯关：要组满两队角色轮流上场，"
+        "讲究元素搭配、谁打输出谁辅助，玩家口语里常说「配队」。"
+        "每轮刷新过关能拿原石、培养材料，所以孩子会跟着攻略视频练手法和阵容。"
     ),
 }
 
@@ -1614,3 +1631,166 @@ async def build_fresh_video_web_context(
         )
 
     return result
+
+
+def plan_deep_search_queries(
+    *,
+    title: str = "",
+    summary: str = "",
+    share_keywords: str = "",
+    tag: str = "",
+    cover_ocr: str = "",
+    page_text: str = "",
+) -> list[str]:
+    """
+    从分享材料自动规划检索词（换话题通用，不依赖 _KNOWN_TOPIC_BLURBS）。
+    歧义词仍走 _SEARCH_QUERY_OVERRIDES 消歧（仅改 query，不预写口播）。
+    """
+    keywords = extract_video_search_keywords(
+        title=title,
+        summary=summary,
+        share_keywords=share_keywords,
+        tag=tag,
+        cover_ocr=cover_ocr,
+        page_text=page_text,
+    )
+    title_s = (title or "").strip()[:24]
+    summary_s = (summary or "").strip()[:20]
+    blob = f"{title} {summary} {share_keywords} {tag}"
+
+    queries: list[str] = []
+    seen: set[str] = set()
+
+    def add(q: str) -> None:
+        q = (q or "").strip()
+        if not q or q in seen or len(q) < 2:
+            return
+        seen.add(q)
+        queries.append(q)
+
+    for kw in keywords[:2]:
+        add(_disambiguate_web_query(kw))
+        if title_s and title_s not in kw and len(title_s) >= 2:
+            add(f"{kw} {title_s}")
+        if any(x in blob for x in ("教学", "攻略", "实战", "配队", "教程", "玩法")):
+            add(f"{kw} 玩法攻略 介绍")
+
+    if summary_s and summary_s not in _GENERIC_SEARCH_TAGS:
+        add(_disambiguate_web_query(summary_s))
+    if title_s and not queries:
+        add(_disambiguate_web_query(title_s))
+
+    return queries[:4]
+
+
+async def fetch_fresh_context_for_topic(
+    *,
+    title: str = "",
+    summary: str = "",
+    share_keywords: str = "",
+    tag: str = "",
+    cover_ocr: str = "",
+    page_text: str = "",
+    max_queries: int = 3,
+    include_builtin_fallback: bool = True,
+) -> str:
+    """
+    通用联网加深：Bing/DDG/百科（与 tools 同源），供口播/解读优先采用。
+    本地 _KNOWN_TOPIC_BLURBS 仅在检索结果过短时作补充，不替代联网。
+    """
+    from app.config import settings
+    from app.services.vivo_chat_tools import run_web_search_tool
+
+    if not settings.web_search_enabled:
+        if include_builtin_fallback:
+            return build_builtin_entity_context(
+                share_keywords=share_keywords,
+                summary=summary,
+                title=title,
+            )
+        return ""
+
+    queries = plan_deep_search_queries(
+        title=title,
+        summary=summary,
+        share_keywords=share_keywords,
+        tag=tag,
+        cover_ocr=cover_ocr,
+        page_text=page_text,
+    )
+    chunks: list[str] = []
+    for q in queries[: max(1, max_queries)]:
+        block = await run_web_search_tool(q)
+        if block and "未检索到" not in block:
+            chunks.append(block)
+
+    merged = "\n\n".join(chunks).strip()
+    if len(merged) < 200 and include_builtin_fallback:
+        builtin = build_builtin_entity_context(
+            share_keywords=share_keywords,
+            summary=summary,
+            title=title,
+        )
+        if builtin:
+            merged = (
+                f"{merged}\n\n【背景参考（联网不足时补充，勿优先于上方检索）】\n{builtin}"
+                if merged
+                else builtin
+            ).strip()
+    return merged[:3200]
+
+
+_JUNK_WEB_MARKERS = (
+    "原字的本义",
+    "拼音是",
+    "BTS",
+    "腾讯视频",
+    "拉丁字母",
+    "笔画",
+    "仓颉",
+    "Kim Tae",
+    "罗马数字",
+)
+
+
+def pick_oral_sentences_from_web(
+    text: str,
+    *,
+    core: str = "",
+    max_sentences: int = 3,
+) -> list[str]:
+    """从联网摘要抽取可口语化的句子（兜底口播用，不依赖本地词条）。"""
+    if not text:
+        return []
+    cleaned = re.sub(r"【搜索词：[^】]+】", "", text)
+    cleaned = re.sub(r"（Bing：[^）]+）", "", cleaned)
+    candidates: list[tuple[int, str]] = []
+    for line in re.split(r"[。\n；;]", cleaned):
+        line = re.sub(r"^\d+[.．、\s—-]+", "", line).strip()
+        if len(line) < 15 or len(line) > 160:
+            continue
+        if any(j in line for j in _JUNK_WEB_MARKERS):
+            continue
+        score = 0
+        if core and core in line:
+            score += 6
+        if any(
+            w in line
+            for w in ("游戏", "角色", "配队", "玩法", "漫画", "动画", "歌手", "专辑", "攻略", "技能")
+        ):
+            score += 4
+        if "《" in line or "」" in line:
+            score += 2
+        candidates.append((score, line))
+    candidates.sort(key=lambda x: -x[0])
+    out: list[str] = []
+    seen: set[str] = set()
+    for _, line in candidates:
+        key = line[:40]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(line.rstrip("。") + "。")
+        if len(out) >= max_sentences:
+            break
+    return out

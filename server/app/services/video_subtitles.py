@@ -9,9 +9,10 @@ from pathlib import Path
 
 _log = logging.getLogger(__name__)
 
-# 长辈向字幕：每行不宜过长
-_MAX_CHARS = 18
+# 长辈向字幕：单条最多 28 字，默认整句一条；超长仅在逗号/顿号处切分
+_MAX_SUBTITLE_CHARS = 28
 _MIN_SEG_SEC = 1.8
+_SUBTITLE_BREAK_RE = re.compile(r"[，、,；;]")
 
 
 @dataclass
@@ -21,6 +22,33 @@ class TimedSegment:
     text: str
     start_sec: float
     end_sec: float
+
+
+_PUNCT_ONLY_RE = re.compile(r"^[。！？；.…、，,\s;:：!?]+$")
+_SPEAKABLE_RE = re.compile(r"[\u4e00-\u9fffA-Za-z0-9]")
+
+
+def is_speakable_sentence(text: str) -> bool:
+    """TTS 可读：含至少一个汉字/字母/数字，非纯标点。"""
+    s = re.sub(r"\s+", "", (text or "").strip())
+    if not s:
+        return False
+    if _PUNCT_ONLY_RE.fullmatch(s):
+        return False
+    return bool(_SPEAKABLE_RE.search(s))
+
+
+def _commit_sentence(buf: str, merged: list[str]) -> None:
+    s = (buf or "").strip()
+    if not s:
+        return
+    if is_speakable_sentence(s):
+        merged.append(re.sub(r"\s+", "", s))
+    elif merged:
+        # 连续句号「。。」等：并入上一句，避免单独送 TTS
+        merged[-1] += s.replace("\n", "")
+    else:
+        _log.debug("video_subtitles: drop leading punct-only segment %r", s[:8])
 
 
 def split_sentences(text: str) -> list[str]:
@@ -34,37 +62,54 @@ def split_sentences(text: str) -> list[str]:
         if not p:
             continue
         if p in "。！？；\n":
-            buf += p if p != "\n" else "。"
-            s = buf.strip()
-            if s:
-                merged.append(s)
+            buf += "。" if p == "\n" else p
+            _commit_sentence(buf, merged)
             buf = ""
         else:
             buf += p
     if buf.strip():
-        merged.append(buf.strip())
+        _commit_sentence(buf, merged)
     return merged
 
 
-def _wrap_line(s: str, max_len: int) -> list[str]:
-    s = re.sub(r"\s+", "", s)
+def subtitle_cues_for_sentence(sent: str, max_len: int = _MAX_SUBTITLE_CHARS) -> list[str]:
+    """
+    一句口播 → 字幕 cue 列表。
+    默认整句一条；超过 max_len 时仅在逗号/顿号处切分，禁止按字数拆词。
+    """
+    s = re.sub(r"\s+", "", (sent or "").strip())
+    if not s:
+        return []
     if len(s) <= max_len:
-        return [s] if s else []
-    out: list[str] = []
-    while len(s) > max_len:
-        out.append(s[:max_len])
-        s = s[max_len:]
-    if s:
-        out.append(s)
-    return out
+        return [s]
+
+    parts = [p.strip() for p in _SUBTITLE_BREAK_RE.split(s) if p.strip()]
+    if not parts:
+        return [s]
+
+    cues: list[str] = []
+    buf = ""
+    for part in parts:
+        if not buf:
+            candidate = part
+        else:
+            candidate = f"{buf}，{part}"
+        if len(candidate) <= max_len:
+            buf = candidate
+        else:
+            if buf:
+                cues.append(buf)
+            buf = part
+    if buf:
+        cues.append(buf)
+    return cues if cues else [s]
 
 
 def narration_to_cues(narration: str) -> list[str]:
-    """拆成多条字幕 cue。"""
+    """拆成多条字幕 cue（按句 + 逗号切分，不硬切字数）。"""
     cues: list[str] = []
     for sent in split_sentences(narration):
-        for line in _wrap_line(sent, _MAX_CHARS):
-            cues.append(line)
+        cues.extend(subtitle_cues_for_sentence(sent))
     return cues
 
 
@@ -119,7 +164,7 @@ def write_srt_from_segments(segments: list[TimedSegment], dest: Path) -> Path:
         text = (seg.text or "").strip()
         if not text:
             continue
-        cues = narration_to_cues(text)
+        cues = subtitle_cues_for_sentence(text)
         if not cues:
             continue
         seg_start = max(0.0, seg.start_sec)

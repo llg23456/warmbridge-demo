@@ -528,24 +528,22 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
 
         _set_step(job, "media")
 
+        slide_result = await generate_slide_images(
+            work,
+            analyze.image_prompts,
+            job_id=job_id,
+            safe_topic=analyze.core_keyword or (it.tag or ""),
+        )
+        slide_paths = slide_result.paths
+        first_cdn_url = slide_result.first_cdn_url
+
         try:
+            await _synthesize_wav_to(analyze.narration, wav_path, work=work)
+        except Exception as e:
+            _set_step(job, "media", failed=True, err=f"语音合成失败：{e}")
+            return
 
-            slide_result, _ = await asyncio.gather(
-
-                generate_slide_images(
-                    work,
-                    analyze.image_prompts,
-                    job_id=job_id,
-                    safe_topic=analyze.core_keyword or (it.tag or ""),
-                ),
-
-                _synthesize_wav_to(analyze.narration, wav_path, work=work),
-
-            )
-
-            slide_paths = slide_result.paths
-            first_cdn_url = slide_result.first_cdn_url
-
+        try:
             intro_path = await try_generate_intro(
                 work,
                 first_frame_cdn_url=first_cdn_url,
@@ -553,12 +551,9 @@ async def run_popular_video_job(job_id: str, *, public_base: str) -> None:
                 job_id=job_id,
                 safe_topic=analyze.core_keyword or (it.tag or ""),
             )
-
         except Exception as e:
-
-            _set_step(job, "media", failed=True, err=f"语音合成失败：{e}")
-
-            return
+            _log.warning("WbVideoGen job=%s intro fail (non-fatal): %s", job_id, e)
+            intro_path = None
 
 
 

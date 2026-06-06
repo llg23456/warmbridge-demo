@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import shutil
 import subprocess
+import sys
+import tempfile
 import wave
 from pathlib import Path
 
@@ -66,6 +68,17 @@ def ensure_builtin_cover() -> Path:
     return _BUILTIN_COVER
 
 
+def _path_needs_ascii_stage(p: Path) -> bool:
+    """Windows 下 ffmpeg 对中文等非 ASCII 路径常报「找不到文件」。"""
+    if sys.platform != "win32":
+        return False
+    try:
+        str(p.resolve()).encode("ascii")
+        return False
+    except UnicodeEncodeError:
+        return True
+
+
 def image_to_jpeg(
     src: Path,
     dest: Path,
@@ -75,16 +88,32 @@ def image_to_jpeg(
 ) -> None:
     """任意图片 → 16:9 JPEG（居中裁剪填满，避免左右黑边）。"""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if not src.is_file() or src.stat().st_size < 100:
-        raise RuntimeError("封面源文件无效")
+    if not src.is_file():
+        raise FileNotFoundError(f"图片源不存在: {src}")
+    if src.stat().st_size < 100:
+        raise RuntimeError(f"图片源过小: {src} ({src.stat().st_size} bytes)")
     vf = (
         f"scale={width}:{height}:force_original_aspect_ratio=increase,"
         f"crop={width}:{height},format=yuv420p"
     )
-    _run(
-        ["ffmpeg", "-y", "-i", str(src), "-vf", vf, "-frames:v", "1", "-q:v", "2", str(dest)],
-        timeout=90,
-    )
+    use_stage = _path_needs_ascii_stage(src) or _path_needs_ascii_stage(dest)
+    if use_stage:
+        with tempfile.TemporaryDirectory(prefix="wb_ff_") as td:
+            tin = Path(td) / "in.bin"
+            tout = Path(td) / "out.jpg"
+            shutil.copyfile(src, tin)
+            _run(
+                ["ffmpeg", "-y", "-i", str(tin), "-vf", vf, "-frames:v", "1", "-q:v", "2", str(tout)],
+                timeout=90,
+            )
+            if not tout.is_file() or tout.stat().st_size < 300:
+                raise RuntimeError("封面转 JPEG 失败（临时目录），文件过小。")
+            shutil.copyfile(tout, dest)
+    else:
+        _run(
+            ["ffmpeg", "-y", "-i", str(src), "-vf", vf, "-frames:v", "1", "-q:v", "2", str(dest)],
+            timeout=90,
+        )
     if not dest.is_file() or dest.stat().st_size < 300:
         raise RuntimeError("封面转 JPEG 失败，文件过小。")
 
