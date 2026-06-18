@@ -1,42 +1,39 @@
 package com.warmbridge.demo.ui.screens
 
 import android.net.Uri
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.warmbridge.demo.R
 import com.warmbridge.demo.ui.components.InterestTagChips
-import com.warmbridge.demo.ui.components.WarmHeaderGradientBackground
-import com.warmbridge.demo.ui.components.WarmSegmentedControl
-import androidx.compose.ui.res.stringResource
+import com.warmbridge.demo.ui.components.WarmHotTopicsTopChrome
+import com.warmbridge.demo.ui.theme.WbDimens
+import com.warmbridge.demo.ui.theme.WbPageBg
+import com.warmbridge.demo.ui.theme.WbSurface
 
 @Composable
 fun HotTopicsTabScreen(
     showChildChannel: Boolean,
-    interestTags: Set<String>,
+    selectedInterestTag: String?,
     onOpenDetail: (String) -> Unit,
     modifier: Modifier = Modifier,
     showTagFilterEditor: Boolean = false,
     serverTags: List<String> = emptyList(),
-    onInterestTagsChange: (Set<String>) -> Unit = {},
+    onSelectedInterestTagChange: (String?) -> Unit = {},
 ) {
     var segment by rememberSaveable { mutableIntStateOf(0) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     val labels = if (showChildChannel) {
         listOf(
@@ -51,63 +48,48 @@ fun HotTopicsTabScreen(
         )
     }
 
-    Column(modifier.fillMaxSize()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp),
-        ) {
-            WarmHeaderGradientBackground(Modifier.matchParentSize())
-            Text(
-                text = stringResource(R.string.hot_title),
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(horizontal = 20.dp)
-                    .padding(bottom = 12.dp),
-            )
-        }
+    val tagSegmentSelected = segment == 0
 
-        WarmSegmentedControl(
-            labels = labels,
-            selectedIndex = segment,
-            onSelect = { segment = it },
-            modifier = Modifier.padding(top = 12.dp),
+    val (feedChannel, tagToken) = if (showChildChannel) {
+        when (segment) {
+            0 -> {
+                val token = selectedInterestTag?.let { Uri.encode(it) } ?: "ALL"
+                "tag" to token
+            }
+            1 -> "child" to "ALL"
+            else -> "trend" to "ALL"
+        }
+    } else {
+        when (segment) {
+            0 -> {
+                val token = selectedInterestTag?.let { Uri.encode(it) } ?: "ALL"
+                "tag" to token
+            }
+            else -> "trend" to "ALL"
+        }
+    }
+
+    Column(modifier.fillMaxSize()) {
+        WarmHotTopicsTopChrome(
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
+            tabLabels = labels,
+            selectedTabIndex = segment,
+            onTabSelect = { segment = it },
+            modifier = Modifier.fillMaxWidth(),
         )
 
-        val tagSegmentSelected = segment == 0
         if (showTagFilterEditor && tagSegmentSelected) {
             InterestTagChips(
                 allTags = serverTags,
-                selectedTags = interestTags,
-                onSelectedTagsChange = onInterestTagsChange,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                selectedTag = selectedInterestTag,
+                onSelectedTagChange = onSelectedInterestTagChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(WbSurface)
+                    .padding(horizontal = WbDimens.screenPadding)
+                    .padding(top = 10.dp, bottom = 8.dp),
             )
-        } else {
-            Spacer(Modifier.height(8.dp))
-        }
-
-        val (feedChannel, tagToken) = if (showChildChannel) {
-            when (segment) {
-                0 -> {
-                    val token = if (interestTags.isEmpty()) "ALL"
-                    else Uri.encode(interestTags.sorted().joinToString("|"))
-                    "tag" to token
-                }
-                1 -> "child" to "ALL"
-                else -> "trend" to "ALL"
-            }
-        } else {
-            when (segment) {
-                0 -> {
-                    val token = if (interestTags.isEmpty()) "ALL"
-                    else Uri.encode(interestTags.sorted().joinToString("|"))
-                    "tag" to token
-                }
-                else -> "trend" to "ALL"
-            }
         }
 
         FeedListContent(
@@ -116,7 +98,8 @@ fun HotTopicsTabScreen(
             onOpenDetail = onOpenDetail,
             modifier = Modifier
                 .fillMaxSize()
-                .weight(1f, fill = true),
+                .weight(1f, fill = true)
+                .background(WbPageBg),
         )
     }
 }

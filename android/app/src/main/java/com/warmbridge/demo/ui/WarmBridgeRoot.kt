@@ -3,10 +3,12 @@ package com.warmbridge.demo.ui
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.warmbridge.demo.navigation.WbRoutes
@@ -20,6 +22,7 @@ import com.warmbridge.demo.ui.screens.VideoPopularScreen
 import com.warmbridge.demo.ui.screens.VideoQuickScreen
 import com.warmbridge.demo.ui.shell.ChildMainShell
 import com.warmbridge.demo.ui.shell.ParentMainShell
+import com.warmbridge.demo.ui.theme.WarmBridgeSystemBars
 
 @Composable
 fun WarmBridgeRoot(
@@ -28,6 +31,11 @@ fun WarmBridgeRoot(
     onDismissReminderDialog: () -> Unit = {},
 ) {
     val nav = rememberNavController()
+    val navBackStackEntry by nav.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    WarmBridgeSystemBars(currentRoute)
+
     Box(modifier.fillMaxSize()) {
         NavHost(navController = nav, startDestination = WbRoutes.Role, modifier = Modifier.fillMaxSize()) {
             composable(WbRoutes.Role) {

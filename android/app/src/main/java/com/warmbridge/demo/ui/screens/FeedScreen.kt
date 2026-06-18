@@ -14,6 +14,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import com.warmbridge.demo.R
 
 /**
  * 带顶栏与返回的完整屏热点列表；主导航已改用 [FeedListContent] 内嵌于 Tab。
@@ -40,7 +42,10 @@ fun FeedScreen(
                 title = { Text(title, style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back),
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(

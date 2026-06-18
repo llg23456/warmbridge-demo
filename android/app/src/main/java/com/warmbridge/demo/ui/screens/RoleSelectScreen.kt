@@ -20,8 +20,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.warmbridge.demo.R
 import com.warmbridge.demo.ui.components.AssetPhoto
 import com.warmbridge.demo.ui.components.WarmPrimaryButton
 import com.warmbridge.demo.ui.components.WbAssetPhotos
@@ -63,13 +65,13 @@ fun RoleSelectScreen(
             verticalArrangement = Arrangement.Center,
         ) {
             Text(
-                text = "暖桥",
+                text = stringResource(R.string.role_select_app_name),
                 style = MaterialTheme.typography.displaySmall,
                 color = MaterialTheme.colorScheme.primary,
             )
             Text(
-                text = "听懂年轻人的热点，把关心说成听得懂的话",
-                style = MaterialTheme.typography.bodyMedium,
+                text = stringResource(R.string.role_select_tagline),
+                style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 12.dp),
@@ -82,7 +84,10 @@ fun RoleSelectScreen(
                     .height(56.dp),
                 shape = RoundedCornerShape(12.dp),
             ) {
-                Text("我是家长", style = MaterialTheme.typography.labelLarge)
+                Text(
+                    stringResource(R.string.role_select_parent),
+                    style = MaterialTheme.typography.labelLarge,
+                )
             }
             Spacer(Modifier.height(16.dp))
             OutlinedButton(
@@ -94,7 +99,7 @@ fun RoleSelectScreen(
                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
             ) {
                 Text(
-                    "我是孩子",
+                    stringResource(R.string.role_select_child),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary,
                 )

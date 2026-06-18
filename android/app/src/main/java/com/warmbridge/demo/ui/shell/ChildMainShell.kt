@@ -1,16 +1,14 @@
 package com.warmbridge.demo.ui.shell
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -19,7 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -27,10 +29,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.warmbridge.demo.R
+import com.warmbridge.demo.data.local.ChildShareLocalStore
 import com.warmbridge.demo.data.local.InterestTagsRepository
+import com.warmbridge.demo.data.local.SharePrefillHolder
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.navigation.WbRoutes
+import com.warmbridge.demo.ui.components.WarmBottomNavBar
+import com.warmbridge.demo.ui.components.WarmNavTab
 import com.warmbridge.demo.ui.screens.ChildHomeScreen
+import com.warmbridge.demo.ui.screens.ChildHomeViewModel
 import com.warmbridge.demo.ui.screens.HotTopicsTabScreen
 import com.warmbridge.demo.ui.screens.MineScreen
 import kotlinx.coroutines.launch
@@ -45,79 +52,67 @@ fun ChildMainShell(
     val innerNav = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
     val interestRepo = remember { InterestTagsRepository(context) }
+    val shareStore = remember { ChildShareLocalStore(context) }
     val scope = rememberCoroutineScope()
-    var interestTags by remember { mutableStateOf(emptySet<String>()) }
+    var selectedInterestTag by remember { mutableStateOf<String?>(null) }
     var serverTags by remember { mutableStateOf(DefaultInterestTags) }
 
     LaunchedEffect(interestRepo) {
-        interestRepo.tags.collect { interestTags = it }
+        interestRepo.selectedTag.collect { selectedInterestTag = it }
     }
     LaunchedEffect(Unit) {
         runCatching { NetworkModule.api.tags().tags }
             .onSuccess { remote -> if (remote.isNotEmpty()) serverTags = remote }
     }
 
-    fun updateTags(s: Set<String>) {
-        interestTags = s
-        scope.launch { interestRepo.setTags(s) }
+    fun updateSelectedTag(tag: String?) {
+        selectedInterestTag = tag
+        scope.launch { interestRepo.setSelectedTag(tag) }
     }
 
     val navBackStackEntry by innerNav.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: WbRoutes.ChildHome
 
+    val childTabs = listOf(
+        WarmNavTab(
+            route = WbRoutes.ChildHome,
+            label = stringResource(R.string.nav_home),
+            icon = Icons.Filled.Home,
+            contentDescription = stringResource(R.string.cd_nav_home),
+        ),
+        WarmNavTab(
+            route = WbRoutes.ChildHot,
+            label = stringResource(R.string.nav_hot),
+            icon = Icons.Filled.Star,
+            contentDescription = stringResource(R.string.cd_nav_hot),
+        ),
+        WarmNavTab(
+            route = WbRoutes.ChildMine,
+            label = stringResource(R.string.nav_mine),
+            icon = Icons.Filled.Person,
+            contentDescription = stringResource(R.string.cd_nav_mine),
+        ),
+    )
+
+    fun navigateTab(route: String) {
+        innerNav.navigate(route) {
+            popUpTo(innerNav.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         modifier = modifier,
+        contentWindowInsets = WindowInsets.navigationBars,
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ChildHome,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ChildHome) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Home, contentDescription = stringResource(R.string.cd_nav_home))
-                    },
-                    label = { Text(stringResource(R.string.nav_home)) },
-                )
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ChildHot,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ChildHot) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Whatshot, contentDescription = stringResource(R.string.cd_nav_hot))
-                    },
-                    label = { Text(stringResource(R.string.nav_hot)) },
-                )
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ChildMine,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ChildMine) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Person, contentDescription = stringResource(R.string.cd_nav_mine))
-                    },
-                    label = { Text(stringResource(R.string.nav_mine)) },
-                )
-            }
+            WarmBottomNavBar(
+                selectedRoute = currentRoute,
+                tabs = childTabs,
+                onTabSelected = ::navigateTab,
+            )
         },
     ) { padding ->
         NavHost(
@@ -126,20 +121,25 @@ fun ChildMainShell(
             modifier = Modifier.padding(padding),
         ) {
             composable(WbRoutes.ChildHome) {
-                ChildHomeScreen(
-                    onShare = { outerNav.navigate(WbRoutes.Share) },
-                    onReminder = { outerNav.navigate(WbRoutes.Reminder) },
-                    onGoToHotTab = {
-                        innerNav.navigate(WbRoutes.ChildHot) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
+                val homeViewModel: ChildHomeViewModel = viewModel(
+                    factory = object : ViewModelProvider.Factory {
+                        @Suppress("UNCHECKED_CAST")
+                        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                            return ChildHomeViewModel(shareStore) as T
                         }
                     },
+                )
+                ChildHomeScreen(
+                    onShare = { outerNav.navigate(WbRoutes.Share) },
+                    onShareRecommend = { url, note ->
+                        SharePrefillHolder.set(url, note)
+                        outerNav.navigate(WbRoutes.Share)
+                    },
+                    onReminder = { outerNav.navigate(WbRoutes.Reminder) },
                     onImageExplain = { outerNav.navigate(WbRoutes.ImageExplain) },
                     onVideoQuick = { outerNav.navigate(WbRoutes.VideoQuick) },
+                    onGoToHotTab = { navigateTab(WbRoutes.ChildHot) },
+                    viewModel = homeViewModel,
                 )
             }
             composable(WbRoutes.ChildHot) {
@@ -154,11 +154,11 @@ fun ChildMainShell(
                 }
                 HotTopicsTabScreen(
                     showChildChannel = false,
-                    interestTags = interestTags,
+                    selectedInterestTag = selectedInterestTag,
                     onOpenDetail = { id -> outerNav.navigate(WbRoutes.detail(id)) },
                     showTagFilterEditor = true,
                     serverTags = serverTags,
-                    onInterestTagsChange = { updateTags(it) },
+                    onSelectedInterestTagChange = { updateSelectedTag(it) },
                 )
             }
             composable(WbRoutes.ChildMine) {

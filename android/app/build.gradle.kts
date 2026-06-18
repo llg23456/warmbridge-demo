@@ -79,6 +79,11 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
+    // 图片加载（WarmAsyncImage / AssetImage）
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    // 状态栏策略 B（WarmBridgeSystemBars）
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.36.0")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
 }

@@ -1,221 +1,175 @@
 package com.warmbridge.demo.ui.screens
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
-import com.warmbridge.demo.ui.components.WarmPrimaryButton
+import com.warmbridge.demo.R
+import com.warmbridge.demo.data.local.ChildShareLocalStore
+import com.warmbridge.demo.data.local.SharePrefillHolder
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.data.remote.ShareRequest
+import com.warmbridge.demo.ui.components.WarmStatusBanner
+import com.warmbridge.demo.ui.components.WarmStatusBannerType
+import com.warmbridge.demo.ui.components.WarmToolScreenScaffold
+import com.warmbridge.demo.ui.components.WarmTopBarNavigation
+import com.warmbridge.demo.ui.components.warmTextFieldColors
 import com.warmbridge.demo.util.ShareUrlExtractor
 import com.warmbridge.demo.util.humanizeNetworkError
 import kotlinx.coroutines.launch
+import androidx.compose.ui.unit.dp
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShareScreen(onDone: () -> Unit) {
-    // 默认填一条真实可打开的链接，演示时仍可改成任意原文 URL
-    var url by remember { mutableStateOf("https://www.news.cn/tech/20241219/fa8d539d4b164cc190738d2943ca080c/c.html") }
-    /** 链接框里用户粘贴的整段原文（抽出 url 后仍保留，用于标题/关键词/检索） */
+fun ShareScreen(
+    onDone: () -> Unit,
+    initialUrl: String = "",
+    initialNote: String = "",
+) {
+    val context = LocalContext.current
+    val shareStore = remember { ChildShareLocalStore(context) }
+    var url by remember {
+        mutableStateOf(
+            initialUrl.ifBlank { "https://www.news.cn/tech/20241219/fa8d539d4b164cc190738d2943ca080c/c.html" },
+        )
+    }
     var rawPasteContext by remember { mutableStateOf("") }
-    var note by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf(initialNote) }
     var busy by remember { mutableStateOf(false) }
     var sentOk by remember { mutableStateOf(false) }
+    var errMsg by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val snack = remember { SnackbarHostState() }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snack) },
-        topBar = {
-            TopAppBar(
-                title = { Text("分享给父母", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    IconButton(onClick = onDone, enabled = !busy) {
-                        Icon(Icons.Filled.Close, contentDescription = "关闭")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            )
-        },
-        bottomBar = {
-            WarmPrimaryButton(
-                onClick = {
-                    if (!busy && !sentOk && url.isNotBlank()) {
-                        scope.launch {
-                            busy = true
-                            try {
-                                val cleanUrl = ShareUrlExtractor.normalizePaste(url)
-                                val r = NetworkModule.api.share(
-                                    ShareRequest(
-                                        url = cleanUrl,
-                                        note = note.trim(),
-                                        rawPaste = rawPasteContext.ifBlank { url.trim() },
-                                    ),
-                                )
-                                if (r.ok) {
-                                    sentOk = true
-                                    snack.showSnackbar(
-                                        message = "已发送成功，父母可在「孩子推荐」里看到。",
-                                        duration = SnackbarDuration.Long,
-                                    )
-                                } else {
-                                    snack.showSnackbar(
-                                        "发送未成功，请稍后重试。",
-                                        duration = SnackbarDuration.Long,
-                                    )
-                                }
-                            } catch (e: Exception) {
-                                snack.showSnackbar(
-                                    humanizeNetworkError(e) ?: "分享失败，请稍后重试。",
-                                    duration = SnackbarDuration.Long,
-                                )
-                            } finally {
-                                busy = false
-                            }
+    LaunchedEffect(Unit) {
+        SharePrefillHolder.consume()?.let { (prefillUrl, prefillNote) ->
+            if (prefillUrl.isNotBlank()) url = prefillUrl
+            if (prefillNote.isNotBlank()) note = prefillNote
+        }
+    }
+
+    val primaryLabel = when {
+        busy -> stringResource(R.string.share_sending)
+        sentOk -> stringResource(R.string.share_sent)
+        else -> stringResource(R.string.share_send)
+    }
+
+    WarmToolScreenScaffold(
+        title = stringResource(R.string.home_share_to_parents),
+        onNavigate = onDone,
+        navigation = WarmTopBarNavigation.Close,
+        navigationEnabled = !busy,
+        intro = stringResource(R.string.share_intro),
+        primaryLabel = primaryLabel,
+        onPrimaryClick = {
+            if (!busy && !sentOk && url.isNotBlank()) {
+                scope.launch {
+                    busy = true
+                    errMsg = null
+                    try {
+                        val cleanUrl = ShareUrlExtractor.normalizePaste(url)
+                        val r = NetworkModule.api.share(
+                            ShareRequest(
+                                url = cleanUrl,
+                                note = note.trim(),
+                                rawPaste = rawPasteContext.ifBlank { url.trim() },
+                            ),
+                        )
+                        if (r.ok) {
+                            sentOk = true
+                            val titleHint = note.trim().ifBlank { url.trim() }
+                            shareStore.saveShare(
+                                url = cleanUrl,
+                                note = note.trim(),
+                                titleHint = titleHint,
+                            )
+                        } else {
+                            errMsg = context.getString(R.string.share_fail)
                         }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 16.dp)
-                    .height(56.dp),
-                enabled = !busy && !sentOk && url.isNotBlank(),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Text(
-                    when {
-                        busy -> "发送中…"
-                        sentOk -> "已发送"
-                        else -> "发送"
-                    },
-                    style = MaterialTheme.typography.labelLarge,
-                )
-            }
-        },
-    ) { pad ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(pad)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .padding(top = 24.dp, bottom = 8.dp),
-        ) {
-            Text(
-                "粘贴抖音、B 站等整段分享文案即可，会自动抽出可打开的链接；也可直接粘贴 https 开头网址。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (sentOk) {
-                Spacer(Modifier.height(16.dp))
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Row(
-                        Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Filled.CheckCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            " 已发送成功！请让父母打开「孩子推荐」查看；封面与背景信息会在后台自动补全。",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
+                    } catch (e: Exception) {
+                        errMsg = humanizeNetworkError(e) ?: context.getString(R.string.share_fail)
+                    } finally {
+                        busy = false
                     }
                 }
             }
-            Spacer(Modifier.height(24.dp))
-            OutlinedTextField(
-                value = url,
-                onValueChange = { newVal ->
-                    if (newVal.isBlank()) {
-                        rawPasteContext = ""
-                        url = ""
-                        return@OutlinedTextField
-                    }
-                    val normalized = ShareUrlExtractor.normalizePaste(newVal)
-                    val extracted = ShareUrlExtractor.extractPreferredUrl(newVal)
-                    val hasRichPaste =
-                        (extracted != null && newVal.trim().length > extracted.length + 2) ||
-                            newVal.contains("复制打开") || newVal.contains("【") || newVal.contains('#') ||
-                            newVal.contains("抖音") || newVal.contains("哔哩") || newVal.contains("b23.tv")
-                    if (hasRichPaste) {
-                        rawPasteContext = newVal.trim()
-                    }
-                    url = normalized
-                },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("链接", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) },
-                placeholder = { Text("粘贴分享口令或网址") },
-                textStyle = MaterialTheme.typography.bodyLarge,
-                shape = RoundedCornerShape(12.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                colors = fieldColors(),
-                minLines = 2,
-                maxLines = 5,
-            )
-            Spacer(Modifier.height(16.dp))
-            OutlinedTextField(
-                value = note,
-                onValueChange = { note = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("推荐语（可选）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.secondary) },
-                textStyle = MaterialTheme.typography.bodyLarge,
-                shape = RoundedCornerShape(12.dp),
-                colors = fieldColors(),
-                minLines = 4,
-            )
-        }
+        },
+        primaryEnabled = !busy && !sentOk && url.isNotBlank(),
+        statusContent = {
+            if (sentOk) {
+                WarmStatusBanner(
+                    message = stringResource(R.string.share_success_banner),
+                    type = WarmStatusBannerType.Success,
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+            errMsg?.let { message ->
+                WarmStatusBanner(message = message, type = WarmStatusBannerType.Error)
+                Spacer(Modifier.height(12.dp))
+            }
+        },
+    ) {
+        OutlinedTextField(
+            value = url,
+            onValueChange = { newVal ->
+                if (newVal.isBlank()) {
+                    rawPasteContext = ""
+                    url = ""
+                    return@OutlinedTextField
+                }
+                val normalized = ShareUrlExtractor.normalizePaste(newVal)
+                val extracted = ShareUrlExtractor.extractPreferredUrl(newVal)
+                val hasRichPaste =
+                    (extracted != null && newVal.trim().length > extracted.length + 2) ||
+                        newVal.contains("复制打开") || newVal.contains("【") || newVal.contains('#') ||
+                        newVal.contains("抖音") || newVal.contains("哔哩") || newVal.contains("b23.tv")
+                if (hasRichPaste) {
+                    rawPasteContext = newVal.trim()
+                }
+                url = normalized
+            },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.share_url_label)) },
+            placeholder = { Text(stringResource(R.string.share_url_placeholder)) },
+            textStyle = MaterialTheme.typography.bodyLarge,
+            shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            colors = warmTextFieldColors(),
+            minLines = 2,
+            maxLines = 5,
+            enabled = !busy && !sentOk,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.share_note_hint),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = note,
+            onValueChange = { note = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(stringResource(R.string.share_note_label)) },
+            textStyle = MaterialTheme.typography.bodyLarge,
+            shape = RoundedCornerShape(12.dp),
+            colors = warmTextFieldColors(),
+            minLines = 4,
+            enabled = !busy && !sentOk,
+        )
     }
 }
-
-@Composable
-private fun fieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = MaterialTheme.colorScheme.primary,
-    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-    focusedLabelColor = MaterialTheme.colorScheme.secondary,
-    unfocusedLabelColor = MaterialTheme.colorScheme.secondary,
-)

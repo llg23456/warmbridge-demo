@@ -13,19 +13,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,9 +31,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.FeedItemDto
 import com.warmbridge.demo.data.remote.NetworkModule
+import com.warmbridge.demo.ui.components.WarmRetryState
+import com.warmbridge.demo.ui.components.WarmStatusBanner
+import com.warmbridge.demo.ui.components.WarmStatusBannerType
+import com.warmbridge.demo.ui.components.WarmTopAppBar
+import com.warmbridge.demo.ui.theme.WbDimens
 import com.warmbridge.demo.util.decodeSessionCoverBitmap
 import com.warmbridge.demo.util.humanizeNetworkError
 import com.warmbridge.demo.util.sessionCoverFile
@@ -55,6 +58,7 @@ fun DetailScreen(
     val context = LocalContext.current
     var item by remember { mutableStateOf<FeedItemDto?>(null) }
     var err by remember { mutableStateOf<String?>(null) }
+    var reloadNonce by remember { mutableIntStateOf(0) }
     var coverBitmap by remember(itemId) { mutableStateOf<ImageBitmap?>(null) }
 
     LaunchedEffect(itemId) {
@@ -65,7 +69,7 @@ fun DetailScreen(
         }
     }
 
-    LaunchedEffect(itemId) {
+    LaunchedEffect(itemId, reloadNonce) {
         err = null
         try {
             item = NetworkModule.api.item(itemId)
@@ -76,13 +80,9 @@ fun DetailScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("详情与解读", style = MaterialTheme.typography.titleLarge) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
+            WarmTopAppBar(
+                title = stringResource(R.string.detail_title),
+                onNavigate = onBack,
             )
         },
     ) { pad ->
@@ -90,84 +90,102 @@ fun DetailScreen(
             Modifier
                 .fillMaxSize()
                 .padding(pad)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = WbDimens.screenPadding)
                 .verticalScroll(rememberScrollState()),
         ) {
-            item?.let { it ->
-                val showImageCover = it.source == "识图" && coverBitmap != null
+            item?.let { feedItem ->
+                val showImageCover = feedItem.source == "识图" && coverBitmap != null
                 if (showImageCover) {
                     Image(
                         bitmap = coverBitmap!!,
-                        contentDescription = "上传的图片",
+                        contentDescription = stringResource(R.string.detail_image_cover_cd),
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 440.dp)
-                            .clip(RoundedCornerShape(12.dp)),
+                            .clip(RoundedCornerShape(WbDimens.compactCardRadius)),
                         contentScale = ContentScale.Fit,
                     )
                     Text(
-                        "来源：${it.source}",
+                        text = stringResource(R.string.detail_source, feedItem.source),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 8.dp),
                     )
-                } else if (it.source == "识图") {
+                } else if (feedItem.source == "识图") {
                     Text(
-                        "来源：识图",
+                        text = stringResource(R.string.detail_source, feedItem.source),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 4.dp),
                     )
                     Text(
-                        "原图仅保存在本机；若需预览截图请返回重新上传。",
+                        text = stringResource(R.string.detail_image_cache_hint),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.tertiary,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 } else {
-                    Text(it.title, style = MaterialTheme.typography.headlineLarge)
+                    Text(feedItem.title, style = MaterialTheme.typography.headlineLarge)
                     Text(
-                        it.summary,
+                        feedItem.summary,
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(top = 12.dp),
                     )
                     Text(
-                        "来源：${it.source}",
+                        text = stringResource(R.string.detail_source, feedItem.source),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(top = 8.dp),
                     )
                 }
-                if (it.url.isNotBlank()) {
+                if (feedItem.url.isNotBlank()) {
                     Button(
                         onClick = {
                             val intent = CustomTabsIntent.Builder().build()
-                            intent.launchUrl(context, Uri.parse(it.url))
+                            intent.launchUrl(context, Uri.parse(feedItem.url))
                         },
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 16.dp),
                     ) {
-                        Text("在浏览器中打开原文 / 视频", modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            stringResource(R.string.detail_open_original),
+                            modifier = Modifier.padding(vertical = 8.dp),
+                        )
                     }
                 }
             }
 
-            err?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
+            err?.let { message ->
+                if (item == null) {
+                    WarmRetryState(
+                        message = message,
+                        onRetry = { reloadNonce++ },
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                } else {
+                    WarmStatusBanner(
+                        message = message,
+                        type = WarmStatusBannerType.Error,
+                        modifier = Modifier.padding(top = 12.dp),
+                    )
+                }
             }
 
-            val it = item
+            val feedItem = item
             ExplainPanel(
                 itemId = itemId,
                 modifier = Modifier.padding(top = 12.dp),
                 showExplainButton = item != null,
                 autoExplainOnLoad = true,
-                itemSource = it?.source,
-                beforeFollowUp = if (it != null && it.supportsPopularVideo()) {
+                itemSource = feedItem?.source,
+                beforeFollowUp = if (feedItem != null && feedItem.supportsPopularVideo()) {
                     {
                         Button(
                             onClick = { onOpenPopularVideo(itemId) },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text("通俗视频生成", modifier = Modifier.padding(vertical = 8.dp))
+                            Text(
+                                stringResource(R.string.detail_popular_video),
+                                modifier = Modifier.padding(vertical = 8.dp),
+                            )
                         }
                     }
                 } else {

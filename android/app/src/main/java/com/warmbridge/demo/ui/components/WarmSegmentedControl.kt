@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,10 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.warmbridge.demo.ui.theme.WbBrandOrange
 import com.warmbridge.demo.ui.theme.WbChipUnselectedBg
-import com.warmbridge.demo.ui.theme.WbTextMuted
+import com.warmbridge.demo.ui.theme.WbDimens
 
 @Composable
 fun WarmSegmentedControl(
@@ -41,7 +41,7 @@ fun WarmSegmentedControl(
             Modifier
                 .padding(4.dp)
                 .fillMaxWidth()
-                .height(40.dp),
+                .height(WbDimens.minTouchTarget),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             labels.forEachIndexed { index, label ->
@@ -74,11 +74,15 @@ fun WarmSegmentedControl(
                     ) {
                         Text(
                             text = label,
-                            fontSize = 14.sp,
+                            style = MaterialTheme.typography.bodyMedium,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (selected) WbBrandOrange else WbTextMuted,
+                            color = if (selected) {
+                                WbBrandOrange
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
                             textAlign = TextAlign.Center,
-                            maxLines = 1,
+                            maxLines = 2,
                         )
                     }
                 }
