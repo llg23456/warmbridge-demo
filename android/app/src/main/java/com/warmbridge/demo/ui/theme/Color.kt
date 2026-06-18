@@ -17,8 +17,14 @@ val WbPrimary = WbBrandOrange
 /** 主色按下 */
 val WbPrimaryPressed = Color(0xFFC96A32)
 
-/** 顶部渐变起点：主色 10% 透明度 */
+/** 顶部渐变起点：主色 10% 透明度（旧顶栏条带，保留兼容） */
 val WbHeaderGradientOrange = Color(0x1AE07A3D)
+
+/** 全页渐变顶色：暖杏，与状态栏衔接 */
+val WbGradientTop = Color(0xFFFFF0E6)
+
+/** 全页渐变过渡色（≈ WbPageBg） */
+val WbGradientMid = WbPageBg
 
 /** Chip 未选背景 / 分段条背景 */
 val WbChipUnselectedBg = Color(0xFFF5F5F5)

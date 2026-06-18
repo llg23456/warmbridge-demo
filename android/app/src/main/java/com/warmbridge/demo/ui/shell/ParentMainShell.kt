@@ -1,16 +1,14 @@
 package com.warmbridge.demo.ui.shell
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Whatshot
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,13 +24,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.local.InterestTagsRepository
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.navigation.WbRoutes
+import com.warmbridge.demo.ui.components.WarmBottomNavBar
+import com.warmbridge.demo.ui.components.WarmNavTab
 import com.warmbridge.demo.ui.screens.HotTopicsTabScreen
 import com.warmbridge.demo.ui.screens.MineScreen
 import com.warmbridge.demo.ui.screens.ParentHomeScreen
+import com.warmbridge.demo.ui.screens.ParentHomeViewModel
 import kotlinx.coroutines.launch
 
 private val DefaultInterestTags = listOf("科技", "军事", "人文", "健康", "社会", "数码", "吃瓜", "AI", "生活")
@@ -46,78 +48,65 @@ fun ParentMainShell(
     val context = androidx.compose.ui.platform.LocalContext.current
     val interestRepo = remember { InterestTagsRepository(context) }
     val scope = rememberCoroutineScope()
-    var interestTags by remember { mutableStateOf(emptySet<String>()) }
+    var selectedInterestTag by remember { mutableStateOf<String?>(null) }
     var serverTags by remember { mutableStateOf(DefaultInterestTags) }
 
     LaunchedEffect(interestRepo) {
-        interestRepo.tags.collect { interestTags = it }
+        interestRepo.selectedTag.collect { selectedInterestTag = it }
     }
     LaunchedEffect(Unit) {
         runCatching { NetworkModule.api.tags().tags }
             .onSuccess { remote -> if (remote.isNotEmpty()) serverTags = remote }
     }
 
-    fun updateTags(s: Set<String>) {
-        interestTags = s
-        scope.launch { interestRepo.setTags(s) }
+    fun updateSelectedTag(tag: String?) {
+        selectedInterestTag = tag
+        scope.launch { interestRepo.setSelectedTag(tag) }
     }
 
     val navBackStackEntry by innerNav.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: WbRoutes.ParentHome
 
+    val parentTabs = listOf(
+        WarmNavTab(
+            route = WbRoutes.ParentHome,
+            label = stringResource(R.string.nav_home),
+            icon = Icons.Filled.Home,
+            contentDescription = stringResource(R.string.cd_nav_home),
+        ),
+        WarmNavTab(
+            route = WbRoutes.ParentHot,
+            label = stringResource(R.string.nav_hot),
+            icon = Icons.Filled.Star,
+            contentDescription = stringResource(R.string.cd_nav_hot),
+        ),
+        WarmNavTab(
+            route = WbRoutes.ParentMine,
+            label = stringResource(R.string.nav_mine),
+            icon = Icons.Filled.Person,
+            contentDescription = stringResource(R.string.cd_nav_mine),
+        ),
+    )
+
+    fun navigateTab(route: String) {
+        innerNav.navigate(route) {
+            popUpTo(innerNav.graph.findStartDestination().id) {
+                saveState = true
+            }
+            launchSingleTop = true
+            restoreState = true
+        }
+    }
+
     Scaffold(
         modifier = modifier,
+        contentWindowInsets = WindowInsets.navigationBars,
         bottomBar = {
-            NavigationBar {
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ParentHome,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ParentHome) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Home, contentDescription = stringResource(R.string.cd_nav_home))
-                    },
-                    label = { Text(stringResource(R.string.nav_home)) },
-                )
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ParentHot,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ParentHot) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Whatshot, contentDescription = stringResource(R.string.cd_nav_hot))
-                    },
-                    label = { Text(stringResource(R.string.nav_hot)) },
-                )
-                NavigationBarItem(
-                    selected = currentRoute == WbRoutes.ParentMine,
-                    onClick = {
-                        innerNav.navigate(WbRoutes.ParentMine) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    icon = {
-                        Icon(Icons.Filled.Person, contentDescription = stringResource(R.string.cd_nav_mine))
-                    },
-                    label = { Text(stringResource(R.string.nav_mine)) },
-                )
-            }
+            WarmBottomNavBar(
+                selectedRoute = currentRoute,
+                tabs = parentTabs,
+                onTabSelected = ::navigateTab,
+            )
         },
     ) { padding ->
         NavHost(
@@ -126,22 +115,17 @@ fun ParentMainShell(
             modifier = Modifier.padding(padding),
         ) {
             composable(WbRoutes.ParentHome) {
+                val homeViewModel: ParentHomeViewModel = viewModel()
+                LaunchedEffect(selectedInterestTag) {
+                    homeViewModel.load(selectedInterestTag)
+                }
                 ParentHomeScreen(
-                    serverTags = serverTags,
-                    selectedTags = interestTags,
-                    onSelectedTagsChange = { updateTags(it) },
-                    onGoToHotTab = {
-                        innerNav.navigate(WbRoutes.ParentHot) {
-                            popUpTo(innerNav.graph.findStartDestination().id) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onGoToHotTab = { navigateTab(WbRoutes.ParentHot) },
                     onReminder = { outerNav.navigate(WbRoutes.Reminder) },
                     onImageExplain = { outerNav.navigate(WbRoutes.ImageExplain) },
                     onVideoQuick = { outerNav.navigate(WbRoutes.VideoQuick) },
+                    onOpenDetail = { id -> outerNav.navigate(WbRoutes.detail(id)) },
+                    viewModel = homeViewModel,
                 )
             }
             composable(WbRoutes.ParentHot) {
@@ -156,11 +140,11 @@ fun ParentMainShell(
                 }
                 HotTopicsTabScreen(
                     showChildChannel = true,
-                    interestTags = interestTags,
+                    selectedInterestTag = selectedInterestTag,
                     onOpenDetail = { id -> outerNav.navigate(WbRoutes.detail(id)) },
-                    showTagFilterEditor = false,
+                    showTagFilterEditor = true,
                     serverTags = serverTags,
-                    onInterestTagsChange = { updateTags(it) },
+                    onSelectedInterestTagChange = { updateSelectedTag(it) },
                 )
             }
             composable(WbRoutes.ParentMine) {

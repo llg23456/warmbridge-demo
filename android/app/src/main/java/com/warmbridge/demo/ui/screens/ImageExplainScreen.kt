@@ -4,26 +4,18 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Image
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,9 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.NetworkModule
+import com.warmbridge.demo.ui.components.WarmLoadingContent
+import com.warmbridge.demo.ui.components.WarmStatusBanner
+import com.warmbridge.demo.ui.components.WarmStatusBannerType
+import com.warmbridge.demo.ui.components.WarmToolScreenScaffold
+import com.warmbridge.demo.ui.theme.WbBrandOrange
 import com.warmbridge.demo.util.buildImageUploadPart
 import com.warmbridge.demo.util.copyUriToSessionCover
 import com.warmbridge.demo.util.humanizeNetworkError
@@ -44,7 +40,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ImageExplainScreen(
     onBack: () -> Unit,
@@ -61,9 +56,10 @@ fun ImageExplainScreen(
         contract = ActivityResultContracts.PickVisualMedia(),
     ) { uri ->
         pendingUri = uri
+        err = null
         pickedLabel = uri?.let { u ->
             u.lastPathSegment?.takeIf { it.length < 80 && !it.all { c -> c.isDigit() } }
-                ?: "已选择（将读取完整图片文件上传）"
+                ?: context.getString(R.string.image_explain_pick)
         }
     }
 
@@ -79,83 +75,56 @@ fun ImageExplainScreen(
                 copyUriToSessionCover(context, resp.itemId, uri)
                 onDoneToDetail(resp.itemId)
             } catch (e: Exception) {
-                err = humanizeNetworkError(e) ?: "上传失败，请检查网络。"
+                err = humanizeNetworkError(e) ?: context.getString(R.string.image_upload_fail)
             } finally {
                 loading = false
             }
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text("图片识梗", style = MaterialTheme.typography.titleLarge)
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
+    WarmToolScreenScaffold(
+        title = stringResource(R.string.media_image_title),
+        onNavigate = onBack,
+        intro = stringResource(R.string.image_explain_intro),
+        primaryLabel = stringResource(R.string.image_explain_upload),
+        onPrimaryClick = {
+            pendingUri?.let { upload(it) }
         },
-    ) { pad ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(pad)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            Text(
-                stringResource(R.string.image_explain_intro),
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(top = 8.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = {
-                    pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !loading,
-            ) {
-                Icon(Icons.Filled.Image, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                Text(stringResource(R.string.image_explain_pick), modifier = Modifier.padding(vertical = 8.dp))
-            }
-            pickedLabel?.let {
-                Text(
-                    "已选：$it",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 8.dp),
-                )
-            }
-            Button(
-                onClick = {
-                    val u = pendingUri
-                    if (u != null) upload(u)
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                enabled = !loading && pendingUri != null,
-            ) {
-                Text(stringResource(R.string.image_explain_upload), modifier = Modifier.padding(vertical = 8.dp))
-            }
+        primaryEnabled = !loading && pendingUri != null,
+        navigationEnabled = !loading,
+        footerHint = stringResource(R.string.image_explain_legal),
+        statusContent = {
             if (loading) {
-                CircularProgressIndicator(Modifier.padding(16.dp))
+                WarmLoadingContent(message = stringResource(R.string.image_uploading))
+                Spacer(Modifier.height(12.dp))
             }
-            err?.let {
-                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyLarge)
+            err?.let { message ->
+                WarmStatusBanner(message = message, type = WarmStatusBannerType.Error)
+                Spacer(Modifier.height(12.dp))
             }
-            Spacer(Modifier.height(24.dp))
+        },
+    ) {
+        OutlinedButton(
+            onClick = {
+                pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
+            enabled = !loading,
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.5.dp, WbBrandOrange),
+        ) {
+            Icon(Icons.Filled.Image, contentDescription = stringResource(R.string.cd_pick_image), modifier = Modifier.padding(end = 8.dp))
+            Text(stringResource(R.string.image_explain_pick))
+        }
+        pickedLabel?.let { label ->
+            Spacer(Modifier.height(8.dp))
             Text(
-                stringResource(R.string.image_explain_legal),
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.tertiary,
-                style = MaterialTheme.typography.bodySmall,
+                text = stringResource(R.string.image_selected, label),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
             )
-            Spacer(Modifier.height(32.dp))
         }
     }
 }

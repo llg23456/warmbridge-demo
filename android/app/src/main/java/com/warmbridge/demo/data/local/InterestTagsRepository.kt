@@ -10,20 +10,20 @@ import kotlinx.coroutines.flow.map
 private val Context.wbInterestStore by preferencesDataStore("wb_interest_tags")
 
 /**
- * 家长 / 孩子「按兴趣」多选标签持久化（pipe 拼接、排序），双端共用。
+ * 家长 / 孩子「按兴趣」单选标签持久化；空值表示「全部」。双端共用。
  */
 class InterestTagsRepository(context: Context) {
     private val app = context.applicationContext
     private val key = stringPreferencesKey("pipe_joined_sorted")
 
-    val tags: Flow<Set<String>> = app.wbInterestStore.data.map { pref ->
+    val selectedTag: Flow<String?> = app.wbInterestStore.data.map { pref ->
         val raw = pref[key] ?: ""
-        if (raw.isBlank()) emptySet()
-        else raw.split('|').filter { it.isNotBlank() }.toSet()
+        if (raw.isBlank()) null
+        else raw.split('|').firstOrNull()?.takeIf { it.isNotBlank() }
     }
 
-    suspend fun setTags(tags: Set<String>) {
-        val encoded = tags.sorted().joinToString("|")
+    suspend fun setSelectedTag(tag: String?) {
+        val encoded = tag?.trim()?.takeIf { it.isNotBlank() } ?: ""
         app.wbInterestStore.edit { it[key] = encoded }
     }
 }

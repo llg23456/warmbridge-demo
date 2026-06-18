@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
+import com.warmbridge.demo.ui.theme.WbDimens
 
 /** 按下时背景过渡到深陶土色；用 Surface 避免部分环境下 ButtonDefaults.buttonColors 不匹配。 */
 @Composable
@@ -52,7 +54,7 @@ fun WarmPrimaryButton(
     )
     Surface(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.heightIn(min = WbDimens.touchMin),
         enabled = enabled,
         shape = shape,
         color = bg,
