@@ -4,17 +4,13 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,13 +22,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.warmbridge.demo.ui.theme.WbSurface
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.NetworkModule
+import com.warmbridge.demo.ui.components.ImageExplainHeroSection
+import com.warmbridge.demo.ui.components.ImageExplainPickZone
+import com.warmbridge.demo.ui.components.ImageExplainPrivacyBanner
 import com.warmbridge.demo.ui.components.WarmLoadingContent
 import com.warmbridge.demo.ui.components.WarmStatusBanner
 import com.warmbridge.demo.ui.components.WarmStatusBannerType
 import com.warmbridge.demo.ui.components.WarmToolScreenScaffold
-import com.warmbridge.demo.ui.theme.WbBrandOrange
+import com.warmbridge.demo.ui.theme.WbImageExplainBg
 import com.warmbridge.demo.util.buildImageUploadPart
 import com.warmbridge.demo.util.copyUriToSessionCover
 import com.warmbridge.demo.util.humanizeNetworkError
@@ -49,21 +49,8 @@ fun ImageExplainScreen(
     val scope = rememberCoroutineScope()
     var loading by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
-    var pickedLabel by remember { mutableStateOf<String?>(null) }
-    var pendingUri by remember { mutableStateOf<Uri?>(null) }
 
-    val pick = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        pendingUri = uri
-        err = null
-        pickedLabel = uri?.let { u ->
-            u.lastPathSegment?.takeIf { it.length < 80 && !it.all { c -> c.isDigit() } }
-                ?: context.getString(R.string.image_explain_pick)
-        }
-    }
-
-    fun upload(uri: Uri) {
+    val upload: (Uri) -> Unit = { uri ->
         scope.launch {
             loading = true
             err = null
@@ -82,17 +69,41 @@ fun ImageExplainScreen(
         }
     }
 
+    val pick = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia(),
+    ) { uri ->
+        uri?.let(upload)
+    }
+
+    val launchPick = {
+        err = null
+        pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+
     WarmToolScreenScaffold(
         title = stringResource(R.string.media_image_title),
         onNavigate = onBack,
-        intro = stringResource(R.string.image_explain_intro),
-        primaryLabel = stringResource(R.string.image_explain_upload),
-        onPrimaryClick = {
-            pendingUri?.let { upload(it) }
-        },
-        primaryEnabled = !loading && pendingUri != null,
+        primaryLabel = stringResource(R.string.image_explain_primary),
+        onPrimaryClick = launchPick,
+        primaryEnabled = !loading,
         navigationEnabled = !loading,
-        footerHint = stringResource(R.string.image_explain_legal),
+        headerContent = {
+            ImageExplainHeroSection()
+        },
+        primaryContent = {
+            Icon(
+                Icons.Filled.Image,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp),
+            )
+            Text(stringResource(R.string.image_explain_primary), style = MaterialTheme.typography.labelLarge)
+        },
+        bottomBarPrefix = {
+            ImageExplainPrivacyBanner()
+        },
+        primaryButtonBottomPadding = 28.dp,
+        containerColor = WbImageExplainBg,
+        topBarContainerColor = WbSurface,
         statusContent = {
             if (loading) {
                 WarmLoadingContent(message = stringResource(R.string.image_uploading))
@@ -104,27 +115,9 @@ fun ImageExplainScreen(
             }
         },
     ) {
-        OutlinedButton(
-            onClick = {
-                pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
+        ImageExplainPickZone(
+            onClick = launchPick,
             enabled = !loading,
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.5.dp, WbBrandOrange),
-        ) {
-            Icon(Icons.Filled.Image, contentDescription = stringResource(R.string.cd_pick_image), modifier = Modifier.padding(end = 8.dp))
-            Text(stringResource(R.string.image_explain_pick))
-        }
-        pickedLabel?.let { label ->
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = stringResource(R.string.image_selected, label),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
+        )
     }
 }

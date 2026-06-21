@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -31,9 +32,18 @@ fun HotTopicsTabScreen(
     showTagFilterEditor: Boolean = false,
     serverTags: List<String> = emptyList(),
     onSelectedInterestTagChange: (String?) -> Unit = {},
+    pendingSegment: Int? = null,
+    onPendingSegmentApplied: () -> Unit = {},
 ) {
     var segment by rememberSaveable { mutableIntStateOf(0) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(pendingSegment) {
+        pendingSegment?.let {
+            segment = it
+            onPendingSegmentApplied()
+        }
+    }
 
     val labels = if (showChildChannel) {
         listOf(

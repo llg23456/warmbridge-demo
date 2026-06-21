@@ -50,6 +50,7 @@ fun ParentMainShell(
     val scope = rememberCoroutineScope()
     var selectedInterestTag by remember { mutableStateOf<String?>(null) }
     var serverTags by remember { mutableStateOf(DefaultInterestTags) }
+    var pendingHotSegment by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(interestRepo) {
         interestRepo.selectedTag.collect { selectedInterestTag = it }
@@ -98,6 +99,11 @@ fun ParentMainShell(
         }
     }
 
+    fun goToHotTab(segment: Int? = null) {
+        pendingHotSegment = segment
+        navigateTab(WbRoutes.ParentHot)
+    }
+
     Scaffold(
         modifier = modifier,
         contentWindowInsets = WindowInsets.navigationBars,
@@ -120,7 +126,8 @@ fun ParentMainShell(
                     homeViewModel.load(selectedInterestTag)
                 }
                 ParentHomeScreen(
-                    onGoToHotTab = { navigateTab(WbRoutes.ParentHot) },
+                    onGoToHotTab = { goToHotTab() },
+                    onGoToHotTabChildRecommend = { goToHotTab(segment = 1) },
                     onReminder = { outerNav.navigate(WbRoutes.Reminder) },
                     onImageExplain = { outerNav.navigate(WbRoutes.ImageExplain) },
                     onVideoQuick = { outerNav.navigate(WbRoutes.VideoQuick) },
@@ -145,6 +152,8 @@ fun ParentMainShell(
                     showTagFilterEditor = true,
                     serverTags = serverTags,
                     onSelectedInterestTagChange = { updateSelectedTag(it) },
+                    pendingSegment = pendingHotSegment,
+                    onPendingSegmentApplied = { pendingHotSegment = null },
                 )
             }
             composable(WbRoutes.ParentMine) {

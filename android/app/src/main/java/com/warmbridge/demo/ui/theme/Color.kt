@@ -5,6 +5,9 @@ import androidx.compose.ui.graphics.Color
 /** 设计系统：暖米白页面底 */
 val WbPageBg = Color(0xFFF7F5F2)
 
+/** 图片识梗页 · 与 Hero 插画左侧留白一致的暖米色 */
+val WbImageExplainBg = Color(0xFFFDF5E6)
+
 /** 卡片 / 弹窗 / 输入框 */
 val WbSurface = Color(0xFFFFFFFF)
 

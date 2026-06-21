@@ -17,7 +17,7 @@ private fun isSecondaryRoute(route: String?): Boolean {
 }
 
 /**
- * Tab 壳状态栏跟首页暖橙顶色衔接；二级页跟 TopBar 走 surface；选角页暖米白。
+ * Tab 壳状态栏跟首页暖橙顶色衔接；选角页品牌橙；二级页跟 TopBar 走 surface。
  */
 @Composable
 fun WarmBridgeSystemBars(currentRoute: String?) {
@@ -25,12 +25,14 @@ fun WarmBridgeSystemBars(currentRoute: String?) {
     val scheme = MaterialTheme.colorScheme
 
     val isTabShell = currentRoute == WbRoutes.Parent || currentRoute == WbRoutes.Child
+    val isRoleSelect = currentRoute == WbRoutes.Role
     val statusBarColor = when {
         isTabShell -> WarmHomeHeaderOrangeTop
+        isRoleSelect -> WbBrandOrange
         isSecondaryRoute(currentRoute) -> scheme.surface
         else -> WbPageBg
     }
-    val statusBarDarkIcons = !isTabShell
+    val statusBarDarkIcons = !isTabShell && !isRoleSelect
 
     SideEffect {
         systemUiController.setStatusBarColor(

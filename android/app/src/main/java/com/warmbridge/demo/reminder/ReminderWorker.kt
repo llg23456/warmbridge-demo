@@ -9,6 +9,7 @@ import androidx.work.Data
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import com.warmbridge.demo.data.local.ReminderLocalStore
 import java.util.concurrent.TimeUnit
 
 class ReminderWorker(
@@ -18,6 +19,7 @@ class ReminderWorker(
 
     override suspend fun doWork(): Result {
         val msg = inputData.getString(KEY_MSG) ?: return Result.failure()
+        val reminderId = inputData.getString(KEY_ID)
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle("暖桥 · 家人提醒")
@@ -33,6 +35,9 @@ class ReminderWorker(
                 putExtra(EXTRA_REMINDER_TEXT, msg)
             },
         )
+        if (reminderId != null) {
+            ReminderLocalStore(applicationContext).markFired(reminderId)
+        }
         return Result.success()
     }
 
@@ -43,15 +48,22 @@ class ReminderWorker(
         const val EXTRA_REMINDER_TEXT = "extra_reminder_text"
 
         private const val KEY_MSG = "msg"
+        private const val KEY_ID = "reminder_id"
         private const val NOTIFY_ID = 77001
 
-        fun schedule(context: Context, message: String, delaySeconds: Long) {
-            val data = Data.Builder().putString(KEY_MSG, message).build()
+        fun enqueue(context: Context, reminderId: String, message: String, delaySeconds: Long) {
+            val data = Data.Builder()
+                .putString(KEY_MSG, message)
+                .putString(KEY_ID, reminderId)
+                .build()
             val req = OneTimeWorkRequestBuilder<ReminderWorker>()
                 .setInitialDelay(delaySeconds, TimeUnit.SECONDS)
                 .setInputData(data)
+                .addTag(workTag(reminderId))
                 .build()
             WorkManager.getInstance(context).enqueue(req)
         }
+
+        private fun workTag(reminderId: String) = "warmbridge_reminder_$reminderId"
     }
 }
