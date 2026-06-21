@@ -37,6 +37,7 @@ import com.warmbridge.demo.util.parentHomeGreetingResId
 @Composable
 fun ParentHomeScreen(
     onGoToHotTab: () -> Unit,
+    onGoToHotTabChildRecommend: () -> Unit,
     onReminder: () -> Unit,
     onImageExplain: () -> Unit,
     onVideoQuick: () -> Unit,
@@ -111,7 +112,8 @@ fun ParentHomeScreen(
                 ChildRecommendCard(
                     items = state.childRecommend,
                     childRecommendLabel = childRecommendLabel,
-                    onViewRelated = onGoToHotTab,
+                    onOpenDetail = onOpenDetail,
+                    onGoToHotTabChildRecommend = onGoToHotTabChildRecommend,
                 )
                 CuratedContentCard(
                     items = state.curated,
@@ -127,7 +129,8 @@ fun ParentHomeScreen(
 private fun ChildRecommendCard(
     items: List<FeedItemDto>,
     childRecommendLabel: String,
-    onViewRelated: () -> Unit,
+    onOpenDetail: (String) -> Unit,
+    onGoToHotTabChildRecommend: () -> Unit,
 ) {
     WarmHomeGroupCard(title = stringResource(R.string.home_child_recommend)) {
         if (items.isEmpty()) {
@@ -143,13 +146,20 @@ private fun ChildRecommendCard(
                 )
             }
         }
-        WarmPrimaryButton(
-            onClick = onViewRelated,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),
-        ) {
-            Text(stringResource(R.string.home_view_related_content))
+        if (items.isNotEmpty()) {
+            WarmPrimaryButton(
+                onClick = {
+                    when {
+                        items.size >= 2 -> onGoToHotTabChildRecommend()
+                        else -> onOpenDetail(items.first().id)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 14.dp),
+            ) {
+                Text(stringResource(R.string.home_view_related_content))
+            }
         }
     }
 }

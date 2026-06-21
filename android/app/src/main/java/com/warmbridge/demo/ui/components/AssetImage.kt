@@ -21,7 +21,18 @@ object WbAssetPhotos {
     private const val P = "photos/"
 
     const val ROLE_SELECT_HERO = "${P}role_select_hero.png"
+    const val ROLE_SELECT_AVATAR_PARENT = "${P}role_select_avatar_parent.png"
+    const val ROLE_SELECT_AVATAR_CHILD = "${P}role_select_avatar_child.png"
     const val REMINDER_DIALOG_HEADER = "${P}reminder_dialog_header.png"
+
+    /** 温情提醒页 Hero（左侧留白叠字，右侧铃铛插画） */
+    const val REMINDER_HERO = "${P}reminder_hero.png"
+
+    /** 图片识梗页 Hero（左侧留白叠字，右侧插画） */
+    const val IMAGE_EXPLAIN_HERO = "${P}image_explain_hero.png"
+
+    /** 视频快解析页 Hero */
+    const val VIDEO_QUICK_HERO = "${P}video_quick_hero.png"
 
     /** 双端首页上半屏背景插画 */
     const val HOME_HEADER_BACKGROUND = "${P}home_header_background.png"

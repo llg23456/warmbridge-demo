@@ -15,10 +15,22 @@ android/app/src/main/assets/photos/
    - 双端首页上半屏背景插画（WarmHomePageShell）
 
 1) role_select_hero.png
-   - 选角页中部插画
+   - 选角页上半屏背景插画
+
+1b) role_select_avatar_parent.png / role_select_avatar_child.png
+   - 选角页角色卡片头像
 
 2) reminder_dialog_header.png
-   - 温情提醒弹窗顶图
+   - 温情提醒到点弹窗上半屏插画（桥与两人、暖色水彩风）
+
+2a) reminder_hero.png
+   - 温情提醒页 Hero 横图（左侧留白叠标题，右侧铃铛爱心 3D 插画）
+
+2b) image_explain_hero.png
+   - 图片识梗页 Hero 横图（左侧留白叠标题，右侧老夫妇插画）
+
+2c) video_quick_hero.png
+   - 视频快解析页 Hero 横图（左侧留白叠标题，右侧 3D 插画）
 
 3) parent_header_decoration.png
    - 家长首页问候区头图装饰（低透明度叠加，不抢主卡）

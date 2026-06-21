@@ -1,9 +1,7 @@
 package com.warmbridge.demo.ui.screens
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -114,24 +112,6 @@ private fun RecentShareCard(
     onShare: () -> Unit,
 ) {
     WarmHomeGroupCard(title = stringResource(R.string.home_recent_share)) {
-        if (data.demoFamilyLines.isNotEmpty()) {
-            Text(
-                text = stringResource(R.string.child_demo_status_label),
-                style = MaterialTheme.typography.labelSmall,
-                color = WbTextMuted,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp),
-            )
-            data.demoFamilyLines.forEach { line ->
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = WbTextMuted,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-                )
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
         val recent = data.recentShare
         if (recent != null) {
             WarmHomeFeedRow(

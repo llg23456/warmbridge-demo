@@ -170,6 +170,7 @@ fun ShareScreen(
             colors = warmTextFieldColors(),
             minLines = 4,
             enabled = !busy && !sentOk,
+
         )
     }
 }

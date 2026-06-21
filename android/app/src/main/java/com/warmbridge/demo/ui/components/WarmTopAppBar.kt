@@ -13,6 +13,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import com.warmbridge.demo.R
 
@@ -26,6 +27,7 @@ fun WarmTopAppBar(
     modifier: Modifier = Modifier,
     navigation: WarmTopBarNavigation = WarmTopBarNavigation.Back,
     navigationEnabled: Boolean = true,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
     actions: @Composable RowScope.() -> Unit = {},
 ) {
     TopAppBar(
@@ -47,7 +49,7 @@ fun WarmTopAppBar(
         },
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surface,
+            containerColor = containerColor,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
         ),
     )

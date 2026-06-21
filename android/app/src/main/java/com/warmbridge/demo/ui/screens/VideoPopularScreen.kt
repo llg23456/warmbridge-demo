@@ -5,11 +5,13 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.Toast
 import android.widget.VideoView
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,7 +29,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
@@ -291,23 +294,13 @@ fun VideoPopularScreen(
                                 }
                             },
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            stringResource(R.string.video_popular_done_explain_hint),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        WarmSectionCard(
-                            title = stringResource(R.string.video_popular_explain_section),
+                        ExplainPanel(
+                            itemId = itemId,
                             modifier = Modifier.padding(top = WbDimens.sectionGap),
-                        ) {
-                            ExplainPanel(
-                                itemId = itemId,
-                                showExplainButton = true,
-                                autoExplainOnLoad = false,
-                                itemSource = itemSource,
-                            )
-                        }
+                            showExplainButton = true,
+                            autoExplainOnLoad = false,
+                            itemSource = itemSource,
+                        )
                         Spacer(Modifier.height(32.dp))
                     }
 
@@ -454,12 +447,21 @@ private fun DoneActions(
     onShareLink: () -> Unit,
     onDownload: () -> Unit,
 ) {
+    val buttonShape = MaterialTheme.shapes.small
+    val outline = MaterialTheme.colorScheme.outline
+    val saveLabel = if (downloadBusy) {
+        stringResource(R.string.video_popular_saving_gallery)
+    } else {
+        stringResource(R.string.video_popular_save_gallery)
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         WarmPrimaryButton(
             onClick = onShareVideo,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(WbDimens.touchMin),
+            shape = buttonShape,
         ) {
             Text(
                 stringResource(R.string.video_popular_share_video),
@@ -467,21 +469,73 @@ private fun DoneActions(
             )
         }
         if (sharePageUrl.isNotBlank()) {
-            OutlinedButton(onClick = onShareLink, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.video_popular_share_link))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PopularVideoOutlinedActionButton(
+                    label = stringResource(R.string.video_popular_share_link),
+                    onClick = onShareLink,
+                    modifier = Modifier.weight(1f),
+                    shape = buttonShape,
+                    outline = outline,
+                )
+                PopularVideoOutlinedActionButton(
+                    label = saveLabel,
+                    onClick = onDownload,
+                    enabled = !downloadBusy,
+                    modifier = Modifier.weight(1f),
+                    shape = buttonShape,
+                    outline = outline,
+                )
             }
+        } else {
+            PopularVideoOutlinedActionButton(
+                label = saveLabel,
+                onClick = onDownload,
+                enabled = !downloadBusy,
+                modifier = Modifier.fillMaxWidth(),
+                shape = buttonShape,
+                outline = outline,
+            )
         }
-        OutlinedButton(
-            onClick = onDownload,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !downloadBusy,
+    }
+}
+
+@Composable
+private fun PopularVideoOutlinedActionButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    shape: Shape = MaterialTheme.shapes.small,
+    outline: Color = MaterialTheme.colorScheme.outline,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(WbDimens.touchMin),
+        enabled = enabled,
+        shape = shape,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, outline),
+    ) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center,
         ) {
             Text(
-                if (downloadBusy) {
-                    stringResource(R.string.video_popular_saving_gallery)
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                color = if (enabled) {
+                    MaterialTheme.colorScheme.primary
                 } else {
-                    stringResource(R.string.video_popular_save_gallery)
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
                 },
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
             )
         }
     }

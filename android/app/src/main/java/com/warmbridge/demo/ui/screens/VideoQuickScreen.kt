@@ -1,16 +1,16 @@
 package com.warmbridge.demo.ui.screens
 
+import android.content.ClipboardManager
+import android.content.Context
 import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,12 +24,16 @@ import androidx.compose.ui.unit.dp
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.data.remote.VideoQuickRequest
+import com.warmbridge.demo.ui.components.VideoQuickHeroSection
+import com.warmbridge.demo.ui.components.VideoQuickParseHintBanner
+import com.warmbridge.demo.ui.components.VideoQuickPasteCard
 import com.warmbridge.demo.ui.components.WarmLoadingContent
 import com.warmbridge.demo.ui.components.WarmStatusBanner
 import com.warmbridge.demo.ui.components.WarmStatusBannerType
 import com.warmbridge.demo.ui.components.WarmToolScreenScaffold
-import com.warmbridge.demo.ui.components.warmTextFieldColors
 import com.warmbridge.demo.ui.theme.WbBrandOrange
+import com.warmbridge.demo.ui.theme.WbImageExplainBg
+import com.warmbridge.demo.ui.theme.WbSurface
 import com.warmbridge.demo.util.firstHttpUrl
 import com.warmbridge.demo.util.humanizeNetworkError
 import kotlinx.coroutines.launch
@@ -52,10 +56,17 @@ fun VideoQuickScreen(
         stringResource(R.string.video_quick_parse)
     }
 
+    val pasteFromClipboard: () -> Unit = {
+        val clip = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        val text = clip?.primaryClip?.getItemAt(0)?.text?.toString()
+        if (!text.isNullOrBlank()) {
+            paste = text
+        }
+    }
+
     WarmToolScreenScaffold(
         title = stringResource(R.string.media_video_title),
         onNavigate = onBack,
-        intro = stringResource(R.string.video_quick_intro),
         primaryLabel = primaryLabel,
         onPrimaryClick = {
             scope.launch {
@@ -75,7 +86,16 @@ fun VideoQuickScreen(
         },
         primaryEnabled = !loading && extractedUrl != null,
         navigationEnabled = !loading,
-        footerHint = stringResource(R.string.video_quick_result_hint),
+        primaryButtonBottomPadding = 28.dp,
+        containerColor = WbImageExplainBg,
+        topBarContainerColor = WbSurface,
+        headerContent = {
+            VideoQuickHeroSection()
+        },
+        bottomBarPrefix = {
+            VideoQuickParseHintBanner()
+        },
+        bottomBarPrefixHorizontalPadding = 12.dp,
         statusContent = {
             if (loading) {
                 WarmLoadingContent(message = stringResource(R.string.video_quick_parsing))
@@ -87,35 +107,30 @@ fun VideoQuickScreen(
             }
         },
     ) {
-        OutlinedTextField(
+        VideoQuickPasteCard(
             value = paste,
             onValueChange = { paste = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(R.string.video_quick_paste_label)) },
-            placeholder = { Text(stringResource(R.string.video_quick_paste_hint)) },
-            textStyle = MaterialTheme.typography.bodyLarge,
-            shape = RoundedCornerShape(12.dp),
-            colors = warmTextFieldColors(),
-            singleLine = false,
-            minLines = 4,
+            onPaste = pasteFromClipboard,
             enabled = !loading,
         )
-        Spacer(Modifier.height(12.dp))
-        OutlinedButton(
-            onClick = {
-                val u = extractedUrl ?: return@OutlinedButton
-                runCatching {
-                    CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(u))
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = extractedUrl != null && !loading,
-        ) {
-            Text(
-                stringResource(R.string.video_quick_open_link),
-                color = WbBrandOrange,
-                modifier = Modifier.padding(vertical = 8.dp),
-            )
+        if (extractedUrl != null) {
+            TextButton(
+                onClick = {
+                    runCatching {
+                        CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(extractedUrl))
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                enabled = !loading,
+            ) {
+                Text(
+                    stringResource(R.string.video_quick_open_link),
+                    color = WbBrandOrange,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
         }
     }
 }

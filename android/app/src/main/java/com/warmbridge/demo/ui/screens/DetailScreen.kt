@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -36,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.warmbridge.demo.R
 import com.warmbridge.demo.data.remote.FeedItemDto
 import com.warmbridge.demo.data.remote.NetworkModule
+import com.warmbridge.demo.ui.components.WarmPrimaryButton
 import com.warmbridge.demo.ui.components.WarmRetryState
 import com.warmbridge.demo.ui.components.WarmStatusBanner
 import com.warmbridge.demo.ui.components.WarmStatusBannerType
@@ -136,7 +136,7 @@ fun DetailScreen(
                     )
                 }
                 if (feedItem.url.isNotBlank()) {
-                    Button(
+                    WarmPrimaryButton(
                         onClick = {
                             val intent = CustomTabsIntent.Builder().build()
                             intent.launchUrl(context, Uri.parse(feedItem.url))
@@ -147,7 +147,7 @@ fun DetailScreen(
                     ) {
                         Text(
                             stringResource(R.string.detail_open_original),
-                            modifier = Modifier.padding(vertical = 8.dp),
+                            style = MaterialTheme.typography.labelLarge,
                         )
                     }
                 }
@@ -178,13 +178,13 @@ fun DetailScreen(
                 itemSource = feedItem?.source,
                 beforeFollowUp = if (feedItem != null && feedItem.supportsPopularVideo()) {
                     {
-                        Button(
+                        WarmPrimaryButton(
                             onClick = { onOpenPopularVideo(itemId) },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(
                                 stringResource(R.string.detail_popular_video),
-                                modifier = Modifier.padding(vertical = 8.dp),
+                                style = MaterialTheme.typography.labelLarge,
                             )
                         }
                     }

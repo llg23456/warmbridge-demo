@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.warmbridge.demo.data.local.ChildLastShare
 import com.warmbridge.demo.data.local.ChildShareLocalStore
-import com.warmbridge.demo.data.local.DemoShareStatus
 import com.warmbridge.demo.data.remote.FeedItemDto
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.util.humanizeNetworkError
@@ -31,7 +30,6 @@ data class ChildRecentShareUi(
 )
 
 data class ChildHomeContent(
-    val demoFamilyLines: List<String>,
     val recentShare: ChildRecentShareUi?,
     val recommendations: List<ChildRecommendItem>,
 )
@@ -71,7 +69,6 @@ class ChildHomeViewModel(
             val recommendations = trendItems.take(2).map { it.toRecommendItem() }
             _uiState.value = ChildHomeUiState.Content(
                 ChildHomeContent(
-                    demoFamilyLines = DemoShareStatus.familyStatusLines,
                     recentShare = lastShare?.toRecentUi(),
                     recommendations = recommendations,
                 ),

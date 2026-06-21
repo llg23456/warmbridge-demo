@@ -1,5 +1,6 @@
 package com.warmbridge.demo.ui.screens
 
+import android.content.Context
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -57,6 +58,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -66,8 +68,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.warmbridge.demo.BuildConfig
 import com.warmbridge.demo.R
+import com.warmbridge.demo.data.local.ScheduledReminder
 import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.data.remote.PopularVideoJobDto
+import com.warmbridge.demo.reminder.ReminderRepository
 import com.warmbridge.demo.ui.components.WarmHomeGroupCard
 import com.warmbridge.demo.ui.components.WarmPopularVideoStatusChip
 import com.warmbridge.demo.ui.theme.WbBrandOrange
@@ -79,6 +83,9 @@ import com.warmbridge.demo.ui.theme.WarmHomeOnHeaderSubtext
 import com.warmbridge.demo.ui.theme.WarmHomeOnHeaderText
 import com.warmbridge.demo.ui.theme.warmHomeGradientBrush
 import com.warmbridge.demo.util.humanizeNetworkError
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 private val MineProfileContentHeight = 204.dp
 private val MineProfileRowTopGap = 28.dp
@@ -112,6 +119,13 @@ fun MineScreen(
     var jobsErr by remember { mutableStateOf<String?>(null) }
     var jobsLoading by remember { mutableStateOf(true) }
     var reloadNonce by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val reminderRepo = remember { ReminderRepository(context) }
+    var pendingReminders by remember { mutableStateOf<List<ScheduledReminder>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        reminderRepo.pendingReminders.collect { pendingReminders = it }
+    }
 
     LaunchedEffect(reloadNonce) {
         jobsLoading = true
@@ -166,6 +180,9 @@ fun MineScreen(
                 val continueJob = popularJobs.firstOrNull {
                     it.status == "running" || it.status == "interrupted"
                 }
+                val hasVideoTasks = !jobsLoading && (continueJob != null || popularJobs.isNotEmpty())
+                val hasPendingReminders = pendingReminders.isNotEmpty()
+
                 if (continueJob != null) {
                     MineContinueVideoRow(
                         job = continueJob,
@@ -201,33 +218,39 @@ fun MineScreen(
                         } else {
                             popularJobs
                         }
-                        when {
-                            listedJobs.isNotEmpty() -> {
-                                listedJobs.forEach { job ->
-                                    MineVideoJobRow(
-                                        job = job,
-                                        onClick = { onOpenPopularVideoJob(job.itemId, job.jobId) },
-                                        showDivider = true,
-                                    )
-                                }
-                            }
-                            continueJob == null -> {
-                                MineIconRow(
-                                    title = stringResource(R.string.mine_popular_video_section),
-                                    icon = Icons.Outlined.PlayCircleOutline,
-                                    onClick = { placeholderDialog = MinePlaceholderDialog.JobsEmpty },
-                                )
-                            }
+                        listedJobs.forEach { job ->
+                            MineVideoJobRow(
+                                job = job,
+                                onClick = { onOpenPopularVideoJob(job.itemId, job.jobId) },
+                                showDivider = true,
+                            )
+                        }
+                        if (!hasVideoTasks) {
+                            MineIconRow(
+                                title = stringResource(R.string.mine_popular_video_section),
+                                icon = Icons.Outlined.PlayCircleOutline,
+                                onClick = { placeholderDialog = MinePlaceholderDialog.JobsEmpty },
+                            )
                         }
                     }
                 }
 
-                MineIconRow(
-                    title = stringResource(R.string.mine_reminder),
-                    icon = Icons.Outlined.Notifications,
-                    onClick = onReminder,
-                    showDivider = false,
-                )
+                pendingReminders.forEachIndexed { index, reminder ->
+                    MineScheduledReminderRow(
+                        reminder = reminder,
+                        onClick = onReminder,
+                        showDivider = index < pendingReminders.lastIndex,
+                    )
+                }
+
+                if (!hasPendingReminders) {
+                    MineIconRow(
+                        title = stringResource(R.string.mine_reminder),
+                        icon = Icons.Outlined.Notifications,
+                        onClick = onReminder,
+                        showDivider = false,
+                    )
+                }
             }
 
             jobsErr?.let { message ->
@@ -337,6 +360,79 @@ fun MineScreen(
                 }
             },
         )
+    }
+}
+
+@Composable
+private fun MineScheduledReminderRow(
+    reminder: ScheduledReminder,
+    onClick: () -> Unit,
+    showDivider: Boolean = true,
+) {
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MineRowIcon(icon = Icons.Outlined.Notifications)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 10.dp, end = 8.dp),
+            ) {
+                Text(
+                    text = reminder.message,
+                    fontSize = 17.sp,
+                    color = WbCardTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = formatReminderTrigger(context, reminder.triggerAtMillis),
+                    fontSize = 15.sp,
+                    color = WbTextMuted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = WbBrandOrange.copy(alpha = 0.12f),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.mine_reminder_pending),
+                        color = WbBrandOrange,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                    )
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = stringResource(R.string.cd_forward),
+                tint = WbTextMuted,
+            )
+        }
+        if (showDivider) {
+            MineRowDivider()
+        }
+    }
+}
+
+private fun formatReminderTrigger(context: Context, triggerAtMillis: Long): String {
+    val diffSec = ((triggerAtMillis - System.currentTimeMillis()) / 1000).coerceAtLeast(0)
+    return when {
+        diffSec < 60 -> context.getString(R.string.mine_reminder_in_seconds, diffSec)
+        diffSec < 3600 -> context.getString(R.string.mine_reminder_in_minutes, (diffSec / 60).toInt())
+        else -> {
+            val formatted = SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(triggerAtMillis))
+            context.getString(R.string.mine_reminder_trigger_at, formatted)
+        }
     }
 }
 
