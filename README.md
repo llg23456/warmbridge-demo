@@ -151,4 +151,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 - `VIVO_APP_KEY` 只放在 `server/.env`，勿写入 Android 工程，勿提交 Git。
 - `android/local.properties`、`.env` 应被 `.gitignore` 忽略。
 
-更多细节见 [暖桥-大模型运用说明.md](暖桥-大模型运用说明.md)、[暖桥-开发现状与速查.md](暖桥-开发现状与速查.md)。
+
