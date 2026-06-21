@@ -1,0 +1,69 @@
+package com.warmbridge.demo.ui.components
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import com.warmbridge.demo.R
+import com.warmbridge.demo.ui.theme.WbBrandOrange
+import com.warmbridge.demo.ui.theme.WbImageExplainBg
+import com.warmbridge.demo.ui.theme.WbTextMuted
+
+private val HeroHeight = 176.dp
+private val HeadlineWidthFraction = 0.62f
+private val HeroBottomCornerRadius = 20.dp
+
+@Composable
+fun ReminderHeroSection(
+    modifier: Modifier = Modifier,
+) {
+    val heroShape = RoundedCornerShape(bottomStart = HeroBottomCornerRadius, bottomEnd = HeroBottomCornerRadius)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(HeroHeight)
+            .clip(heroShape),
+    ) {
+        AssetPhoto(
+            assetPath = WbAssetPhotos.REMINDER_HERO,
+            modifier = Modifier.matchParentSize(),
+            contentScale = ContentScale.FillWidth,
+            alignment = Alignment.CenterEnd,
+            placeholderColor = WbImageExplainBg,
+        )
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .fillMaxWidth(HeadlineWidthFraction)
+                .padding(start = 20.dp, end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.reminder_headline),
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = MaterialTheme.typography.titleLarge.fontSize * 1.35f,
+                ),
+                color = WbBrandOrange,
+            )
+            Text(
+                text = stringResource(R.string.reminder_headline_sub),
+                style = MaterialTheme.typography.bodySmall,
+                color = WbTextMuted,
+            )
+        }
+    }
+}
