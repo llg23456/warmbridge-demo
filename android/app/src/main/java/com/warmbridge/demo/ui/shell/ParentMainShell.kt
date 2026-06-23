@@ -177,6 +177,7 @@ fun ParentMainShell(
                     onOpenPopularVideoJob = { itemId, jobId ->
                         outerNav.navigate(WbRoutes.videoPopular(itemId, jobId))
                     },
+                    onOpenPrivacy = { outerNav.navigate(WbRoutes.ApiSettings) },
                 )
             }
         }

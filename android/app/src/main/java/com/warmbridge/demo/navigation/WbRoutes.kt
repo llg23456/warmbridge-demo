@@ -15,6 +15,7 @@ object WbRoutes {
     const val ChildMine = "child_mine"
 
     const val Reminder = "reminder"
+    const val ApiSettings = "api_settings"
     const val Share = "share"
     const val ImageExplain = "image_explain"
     const val VideoQuick = "video_quick"

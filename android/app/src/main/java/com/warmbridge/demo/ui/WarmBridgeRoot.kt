@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.warmbridge.demo.navigation.WbRoutes
 import com.warmbridge.demo.ui.components.ReminderInAppDialog
+import com.warmbridge.demo.ui.screens.ApiSettingsScreen
 import com.warmbridge.demo.ui.screens.DetailScreen
 import com.warmbridge.demo.ui.screens.ImageExplainScreen
 import com.warmbridge.demo.ui.screens.ReminderScreen
@@ -96,6 +97,11 @@ fun WarmBridgeRoot(
             }
             composable(WbRoutes.Reminder) {
                 ReminderScreen(
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(WbRoutes.ApiSettings) {
+                ApiSettingsScreen(
                     onBack = { nav.popBackStack() },
                 )
             }

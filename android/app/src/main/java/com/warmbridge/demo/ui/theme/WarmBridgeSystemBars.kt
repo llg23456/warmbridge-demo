@@ -12,6 +12,7 @@ private fun isSecondaryRoute(route: String?): Boolean {
         route.startsWith("video_popular/") ||
         route == WbRoutes.Share ||
         route == WbRoutes.Reminder ||
+        route == WbRoutes.ApiSettings ||
         route == WbRoutes.ImageExplain ||
         route == WbRoutes.VideoQuick
 }

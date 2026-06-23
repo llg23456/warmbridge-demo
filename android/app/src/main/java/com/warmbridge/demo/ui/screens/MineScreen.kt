@@ -110,10 +110,10 @@ fun MineScreen(
     onReminder: () -> Unit,
     onSwitchRole: () -> Unit,
     onOpenPopularVideoJob: (itemId: String, jobId: String) -> Unit = { _, _ -> },
+    onOpenPrivacy: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showAbout by remember { mutableStateOf(false) }
-    var showPrivacy by remember { mutableStateOf(false) }
     var placeholderDialog by remember { mutableStateOf(MinePlaceholderDialog.None) }
     var popularJobs by remember { mutableStateOf<List<PopularVideoJobDto>>(emptyList()) }
     var jobsErr by remember { mutableStateOf<String?>(null) }
@@ -295,7 +295,7 @@ fun MineScreen(
                 MineIconRow(
                     title = stringResource(R.string.mine_privacy),
                     icon = Icons.Outlined.PrivacyTip,
-                    onClick = { showPrivacy = true },
+                    onClick = onOpenPrivacy,
                     showDivider = false,
                 )
             }
@@ -344,18 +344,6 @@ fun MineScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showAbout = false }) {
-                    Text(stringResource(R.string.mine_close))
-                }
-            },
-        )
-    }
-    if (showPrivacy) {
-        AlertDialog(
-            onDismissRequest = { showPrivacy = false },
-            title = { Text(stringResource(R.string.mine_privacy)) },
-            text = { Text(stringResource(R.string.mine_privacy_message)) },
-            confirmButton = {
-                TextButton(onClick = { showPrivacy = false }) {
                     Text(stringResource(R.string.mine_close))
                 }
             },

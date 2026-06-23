@@ -4,12 +4,14 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import com.warmbridge.demo.data.remote.NetworkModule
 import com.warmbridge.demo.reminder.ReminderWorker
 import com.warmbridge.demo.video.PopularVideoPollWorker
 
 class WarmBridgeApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        NetworkModule.init(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val ch = NotificationChannel(
                 ReminderWorker.CHANNEL_ID,

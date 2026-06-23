@@ -39,6 +39,24 @@
     <string name="mine_privacy_message">演示环境：热点为白名单示例数据；大模型密钥仅保存在您自建的后端，勿提交公开仓库。</string>
     <string name="mine_close">知道了</string>
 
+    <string name="api_settings_section_privacy">说明</string>
+    <string name="api_settings_section_server">服务器地址</string>
+    <string name="api_settings_current_effective">当前生效：%1$s</string>
+    <string name="api_settings_build_default">编译默认：%1$s</string>
+    <string name="api_settings_url_label">API 地址</string>
+    <string name="api_settings_url_hint">http://192.168.x.x:8000/</string>
+    <string name="api_settings_preset_emulator">模拟器默认</string>
+    <string name="api_settings_reset_default">恢复编译默认</string>
+    <string name="api_settings_reset_done">已恢复为编译默认地址。</string>
+    <string name="api_settings_test_connection">测试连接</string>
+    <string name="api_settings_testing">测试中…</string>
+    <string name="api_settings_test_ok">连接成功，后端 /health 可访问。</string>
+    <string name="api_settings_test_failed">连接失败：%1$s</string>
+    <string name="api_settings_save">保存并应用</string>
+    <string name="api_settings_saved">已保存，后续请求将使用新地址。</string>
+    <string name="api_settings_save_failed">保存失败，请重试。</string>
+    <string name="api_settings_invalid_url">请输入以 http:// 或 https:// 开头的有效地址。</string>
+
     <string name="child_home_title">孩子端</string>
     <string name="child_home_intro">把有意思的内容链接发给父母，并写一句推荐语；也可以设一条关心的定时提醒。</string>
     <string name="child_share">分享给父母</string>

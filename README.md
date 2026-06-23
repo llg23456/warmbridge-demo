@@ -27,13 +27,15 @@ warmbridge-demo/
 
 ### 功能一览
 
-| 角色 / 入口 | 能力 |
-| --- | --- |
-| **家长** | 按兴趣标签浏览热点；**AI 讲给长辈听**（通俗摘要、背景、词语小抄）；**听这段摘要**（TTS）；随口追问；**图片识梗** |
-| **孩子** | **分享链接**（含口令/备注）给家长看；**图片识梗** |
-| **图片识梗** | 相册选图 → OCR 识文字 → 蓝心解读 |
-| **视频快解析** | 粘贴分享文案/链接 → 解析入库 → 同详情页解读流程 |
-| **通俗视频生成** | LLM 写口播稿 → TTS 配音 → 文生图轮播 + 可选片头 → **ffmpeg 合成 mp4**（含硬字幕） |
+
+| 角色 / 入口    | 能力                                                                |
+| ---------- | ----------------------------------------------------------------- |
+| **家长**     | 按兴趣标签浏览热点；**AI 讲给长辈听**（通俗摘要、背景、词语小抄）；**听这段摘要**（TTS）；随口追问；**图片识梗** |
+| **孩子**     | **分享链接**（含口令/备注）给家长看；**图片识梗**                                     |
+| **图片识梗**   | 相册选图 → OCR 识文字 → 蓝心解读                                             |
+| **视频快解析**  | 粘贴分享文案/链接 → 解析入库 → 同详情页解读流程                                       |
+| **通俗视频生成** | LLM 写口播稿 → TTS 配音 → 文生图轮播 + 可选片头 → **ffmpeg 合成 mp4**（含硬字幕）        |
+
 
 **技术栈**：Android（Kotlin / Compose / Retrofit）· 后端（Python / FastAPI / httpx）· 通俗视频合成依赖本机 **ffmpeg**（非 pip 包）。
 
@@ -41,11 +43,13 @@ warmbridge-demo/
 
 ## 环境准备
 
-| 工具 | 用途 |
-| --- | --- |
-| Python 3.10+ | 运行后端 |
-| Android Studio | 编译、安装 App |
-| **ffmpeg** | 通俗视频：合并音轨、烧录字幕、输出 mp4（**必须单独安装**） |
+
+| 工具             | 用途                                |
+| -------------- | --------------------------------- |
+| Python 3.10+   | 运行后端                              |
+| Android Studio | 编译、安装 App                         |
+| **ffmpeg**     | 通俗视频：合并音轨、烧录字幕、输出 mp4（**必须单独安装**） |
+
 
 ### 安装 ffmpeg（Windows）
 
@@ -70,8 +74,8 @@ ffmpeg -version
 1. 打开 [https://www.gyan.dev/ffmpeg/builds/](https://www.gyan.dev/ffmpeg/builds/)（或 [ffmpeg.org/download.html](https://ffmpeg.org/download.html) 选 Windows builds）
 2. 下载 **ffmpeg-release-essentials.zip**（或 full 版）
 3. 解压到固定目录，例如 `C:\ffmpeg`
-4. 将 **`bin` 目录**（如 `C:\ffmpeg\bin`）加入系统环境变量 **Path**：
-   - 设置 → 系统 → 关于 → 高级系统设置 → 环境变量 → Path → 新建 → 填入 `C:\ffmpeg\bin`
+4. 将 `**bin` 目录**（如 `C:\ffmpeg\bin`）加入系统环境变量 **Path**：
+  - 设置 → 系统 → 关于 → 高级系统设置 → 环境变量 → Path → 新建 → 填入 `C:\ffmpeg\bin`
 5. **重新打开** PowerShell / CMD，执行 `ffmpeg -version` 验证
 
 **未安装时的表现**：通俗视频任务在「合成」步骤失败，日志提示「未安装 ffmpeg」。
@@ -92,7 +96,7 @@ copy .env.example .env
 **必填**：`VIVO_APP_KEY`  
 **识图必填**：`VIVO_OCR_BUSINESSID`、`VIVO_APP_ID`
 
-### 2. 查局域网 IP，写入 `android/local.properties`
+### 2. 查局域网 IP，配置 App 后端地址
 
 在**跑后端的电脑**上执行：
 
@@ -102,15 +106,36 @@ ipconfig
 
 找到当前上网网卡（WLAN / 以太网）的 **IPv4**，例如 `192.168.1.100`。
 
+可选：手机浏览器访问 `http://你的IP:8000/health`，应返回 `{"status":"ok"}`。
+
+#### 方式 A：Android Studio 联调（改 `local.properties`）
+
 用 Android Studio 打开 `warmbridge-demo/android`，编辑 `android/local.properties`（无则新建），末尾加一行（**末尾斜杠必填**）：
 
 ```properties
 warmbridge.api.baseUrl=http://192.168.1.100:8000/
 ```
 
-> 真机联调必须用局域网 IP，不能写 `127.0.0.1`。模拟器可不写，默认 `10.0.2.2:8000`。
+> 真机联调必须用局域网 IP，不能写 `127.0.0.1`。模拟器可不写，默认 `http://10.0.2.2:8000/`。
 
-可选：手机浏览器访问 `http://你的IP:8000/health`，应返回 `{"status":"ok"}`。
+改 IP 后需 **Sync + Rebuild + 重装**，否则 App 仍用旧地址。
+
+#### 方式 B：已安装 APK（在 App 内修改）
+
+若已打包安装 APK，无需重新编译，可在应用内直接改服务器地址：
+
+1. 打开 App → 底部 **「我的」**
+2. 点击 **「隐私与数据说明」**
+3. 在 **「服务器地址」** 输入框填入，例如 `http://192.168.1.100:8000/`（**末尾斜杠必填**）
+4. 点击 **「测试连接」**，确认 `/health` 可访问
+5. 点击 **「保存并应用」**
+
+快捷操作：
+
+- **模拟器默认**：一键填入 `http://10.0.2.2:8000/`
+- **恢复编译默认**：清除 App 内覆盖，回退到打包时的 `local.properties` 地址
+
+> 换 Wi‑Fi 或电脑 DHCP 重新分配 IP 后，用 `ipconfig` 查新 IP，再在 App 内更新即可。
 
 ### 3. 启动后端
 
@@ -131,18 +156,20 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 2. **Build → Rebuild Project**
 3. 真机调试时建议卸载旧 App 后重新 Run
 
-改 IP 后必须 **Sync + Rebuild + 重装**，否则 App 仍用旧地址。
+用 Android Studio 联调时，改 `local.properties` 后须 **Sync + Rebuild + 重装**；已装 APK 时见上文 **方式 B**，在 App 内改地址即可。
 
 ---
 
 ## 常见问题
 
-| 现象 | 处理 |
-| --- | --- |
-| App 连接超时 | 重新 `ipconfig` 查 IP → 更新 `local.properties` → Rebuild → 重装 |
-| 通俗视频合成失败 | 终端执行 `ffmpeg -version`；无输出则按上文安装 ffmpeg 并重启终端 |
-| 解读像离线占位 | 检查 `.env` 中 `VIVO_APP_KEY`；响应看 `from_llm` 字段 |
-| 识图 400 | 检查 `VIVO_OCR_BUSINESSID`、`VIVO_APP_ID` |
+
+| 现象       | 处理                                                                                                      |
+| -------- | ------------------------------------------------------------------------------------------------------- |
+| App 连接超时 | 重新 `ipconfig` 查 IP → Android Studio 联调则更新 `local.properties` 并 Rebuild；已装 APK 则在「我的 → 隐私与数据说明」内改地址并测试连接 |
+| 通俗视频合成失败 | 终端执行 `ffmpeg -version`；无输出则按上文安装 ffmpeg 并重启终端                                                           |
+| 解读像离线占位  | 检查 `.env` 中 `VIVO_APP_KEY`；响应看 `from_llm` 字段                                                            |
+| 识图 400   | 检查 `VIVO_OCR_BUSINESSID`、`VIVO_APP_ID`                                                                  |
+
 
 ---
 
@@ -150,5 +177,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 - `VIVO_APP_KEY` 只放在 `server/.env`，勿写入 Android 工程，勿提交 Git。
 - `android/local.properties`、`.env` 应被 `.gitignore` 忽略。
-
 
